@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+  }
+
+  /* Slim, soft scrollbars to match the SaaS look */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4d8e3;
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #b9bfd0;
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Purple -> pink gradient wordmark used for "Calibration Report" */
+  .text-gradient-brand {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(95deg, #7c3aed 0%, #b13bd6 45%, #ec4899 100%);
+  }
+
+  .table-head {
+    @apply text-left text-xs font-semibold uppercase tracking-wide text-ink-faint;
+  }
+}
+
+/* Hide native date picker spacing inconsistencies a touch */
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+}
