@@ -1,46 +1,121 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { FileText, ClipboardCheck, Download, Printer } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
-import mockReports from '../data/mockReports'
-import { buildPdfContainerHtml, combinePagesHtml, fillTemplate } from '../utils/certificateGenerator'
-import calibrationTemplate from '../templates/calibration.html?raw'
-import testConformanceTemplate from '../templates/testConformance.html?raw'
-import { Printer, Download } from 'lucide-react'
+import CalibrationCertificate from '../components/CalibrationCertificate'
+import TestConformanceCertificate from '../components/TestConformanceCertificate'
+import { calibrationCertificateData, testCertificateData } from '../data/reports'
+import Button from '../components/Button'
+
+const TABS = [
+  { id: 'calibration', label: 'Calibration Certificate', icon: ClipboardCheck },
+  { id: 'test', label: 'Test & Conformance', icon: FileText },
+]
 
 export default function Report() {
-  const [activeTab, setActiveTab] = useState('calibration')
+  const [tab, setTab] = useState('calibration')
+  const printRef = useRef(null)
 
   async function exportPdf() {
+    const wrapper = printRef.current
+    if (!wrapper) return
+    // The actual certificate article is the first child
+    const element = wrapper.firstElementChild || wrapper
     try {
-      const mod = await import('html2pdf.js')
-      const html2pdf = mod.default || mod
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
 
-      const calibrationHtml = fillTemplate(calibrationTemplate, mockReports.calibration)
-      const testConformanceHtml = fillTemplate(testConformanceTemplate, mockReports.testConformance)
-      const fullHtml = calibrationHtml + testConformanceHtml
+      const filename =
+        tab === 'calibration'
+          ? `calibration-certificate-${calibrationCertificateData.certificate_no}.pdf`
+          : `test-certificate-${testCertificateData.tc_number}.pdf`
 
-      const wrapper = document.createElement('div')
-      wrapper.style.position = 'fixed'
-      wrapper.style.left = '-99999px'
-      wrapper.style.top = '0'
-      wrapper.style.width = '210mm'
-      wrapper.innerHTML = fullHtml
-      document.body.appendChild(wrapper)
+      const SCALE = 2
+      const A4_W = 210  // mm
+      const A4_H = 297  // mm
 
-      // Give it time to render
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Capture the full certificate at 2× for sharpness
+      const fullCanvas = await html2canvas(element, {
+        scale: SCALE,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+      })
 
-      const opt = {
-        margin: 0,
-        filename: 'sanc-reports.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      // ------------------------------------------------------------------
+      // Find the bottom edge of the header block so we can keep it at full
+      // size and scale only the body content below it.
+      // Selector covers both certificate types.
+      // ------------------------------------------------------------------
+      const headerEndEl = element.querySelector(
+        '.cc-title-block, .tc-cert-title'
+      )
+      const parentRect = element.getBoundingClientRect()
+      let splitPx = 0 // pixels from top of element (at 1×) where body starts
+      if (headerEndEl) {
+        const r = headerEndEl.getBoundingClientRect()
+        splitPx = r.bottom - parentRect.top + 8 // +8px breathing room
       }
 
-      await html2pdf().set(opt).from(wrapper).save()
-      wrapper.remove()
+      const canvasW = fullCanvas.width        // pixels at SCALE×
+      const canvasH = fullCanvas.height
+      const splitCanvas = Math.round(splitPx * SCALE)  // split in canvas coords
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+
+      if (splitPx <= 0 || splitCanvas >= canvasH) {
+        // Fallback: scale whole certificate to fit A4
+        const aspect = canvasH / canvasW
+        let w = A4_W, h = A4_W * aspect
+        if (h > A4_H) { h = A4_H; w = A4_H / aspect }
+        pdf.addImage(
+          fullCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', (A4_W - w) / 2, 0, w, h
+        )
+      } else {
+        // ---- Header portion: placed at full A4 width ----
+        const headerCanvas = document.createElement('canvas')
+        headerCanvas.width = canvasW
+        headerCanvas.height = splitCanvas
+        headerCanvas.getContext('2d').drawImage(
+          fullCanvas, 0, 0, canvasW, splitCanvas, 0, 0, canvasW, splitCanvas
+        )
+        // height in mm proportional to A4 width
+        const headerH_mm = (splitCanvas / canvasW) * A4_W
+        pdf.addImage(
+          headerCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', 0, 0, A4_W, headerH_mm
+        )
+
+        // ---- Body portion: scale to fill remaining A4 space ----
+        const bodyCanvasH = canvasH - splitCanvas
+        const bodyCanvas = document.createElement('canvas')
+        bodyCanvas.width = canvasW
+        bodyCanvas.height = bodyCanvasH
+        bodyCanvas.getContext('2d').drawImage(
+          fullCanvas, 0, splitCanvas, canvasW, bodyCanvasH, 0, 0, canvasW, bodyCanvasH
+        )
+        const bodyAvailH_mm = A4_H - headerH_mm
+        const bodyNaturalH_mm = (bodyCanvasH / canvasW) * A4_W
+        // Scale body to fit available space (never upscale)
+        const bodyScale = bodyNaturalH_mm > bodyAvailH_mm
+          ? bodyAvailH_mm / bodyNaturalH_mm
+          : 1
+        const bodyW_mm = A4_W * bodyScale
+        const bodyH_mm = bodyNaturalH_mm * bodyScale
+        const bodyX = (A4_W - bodyW_mm) / 2
+        pdf.addImage(
+          bodyCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', bodyX, headerH_mm, bodyW_mm, bodyH_mm
+        )
+      }
+
+      pdf.save(filename)
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('PDF export failed', err)
       window.print()
     }
@@ -50,81 +125,56 @@ export default function Report() {
     window.print()
   }
 
-  const getPreviewHtml = () => {
-    if (activeTab === 'calibration') {
-      return fillTemplate(calibrationTemplate, mockReports.calibration)
-    }
-    return fillTemplate(testConformanceTemplate, mockReports.testConformance)
-  }
-
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-6">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <SancLogo size={64} />
+          <SancLogo size={52} />
           <div>
-            <h1 className="font-display text-3xl font-bold text-brand-600">Calibration Report</h1>
-            <p className="text-sm text-ink-faint">SANC Calibration and Validation Services</p>
+            <h1 className="font-display text-2xl font-bold text-ink">Certificates</h1>
+            <p className="text-sm text-ink-faint">Generate &amp; export calibration and test certificates</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handlePrint} className="inline-flex items-center gap-2 rounded-md border border-ink-lighter px-4 py-2 text-ink hover:bg-ink-faintest">
-            <Printer size={18} />
-            Print
-          </button>
-          <button onClick={exportPdf} className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-white hover:bg-brand-700">
-            <Download size={18} />
-            Export PDF
-          </button>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={handlePrint}>
+            <Printer size={18} /> Print
+          </Button>
+          <Button onClick={exportPdf}>
+            <Download size={18} /> Export PDF
+          </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-ink flex items-center gap-3">
-              <SancLogo size={32} />
-              Certificates
-            </h2>
-            <p className="text-sm text-ink-faint mt-1">Generate & export calibration and test certificates</p>
-          </div>
-        </div>
+      {/* Tab switcher */}
+      <div className="flex gap-2">
+        {TABS.map((t) => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                tab === t.id
+                  ? 'bg-brand-600 text-white shadow-ring'
+                  : 'bg-white text-ink-soft ring-1 ring-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Icon size={18} />
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-4 border-b border-ink-lighter mb-6">
-          <button
-            onClick={() => setActiveTab('calibration')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'calibration'
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-ink-faint hover:text-ink'
-            }`}
-          >
-            Calibration Certificate
-          </button>
-          <button
-            onClick={() => setActiveTab('testConformance')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
-              activeTab === 'testConformance'
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-ink-faint hover:text-ink'
-            }`}
-          >
-            Test & Conformance
-          </button>
-        </div>
-
-        {/* Certificate Preview */}
-        <div className="bg-ink-faintest rounded-lg p-4 min-h-96 overflow-auto">
-          <div
-            dangerouslySetInnerHTML={{ __html: getPreviewHtml() }}
-            className="bg-white shadow-md"
-            style={{
-              zoom: 0.75,
-              transformOrigin: 'top left',
-              width: '133.333%',
-            }}
-          />
+      {/* Certificate preview — scrollable container with grey background */}
+      <div className="overflow-x-auto rounded-2xl bg-slate-200/60 p-4">
+        <div ref={printRef}>
+          {tab === 'calibration' ? (
+            <CalibrationCertificate {...calibrationCertificateData} />
+          ) : (
+            <TestConformanceCertificate {...testCertificateData} />
+          )}
         </div>
       </div>
     </div>
