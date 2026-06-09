@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Download, FolderClosed, FileText, Tag, Eye } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DateRangeFilter from '../components/DateRangeFilter'
@@ -11,6 +12,7 @@ const fmtDate = (d) =>
   new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
 export default function Invoices() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -126,7 +128,7 @@ export default function Invoices() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => alert(`Opening calibration report ${r.invoiceNumber}…`)}
+                onClick={() => navigate('/report')}
               >
                 <Eye size={16} /> View
               </Button>
