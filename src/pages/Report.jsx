@@ -16,23 +16,49 @@ export default function Report() {
   const printRef = useRef(null)
 
   async function exportPdf() {
+    const element = printRef.current
+    if (!element) return
     try {
-      const mod = await import('html2pdf.js')
-      const html2pdf = mod.default || mod
-      const element = printRef.current
-      if (!element) return
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+
       const filename =
         tab === 'calibration'
           ? `calibration-certificate-${calibrationCertificateData.certificate_no}.pdf`
           : `test-certificate-${testCertificateData.tc_number}.pdf`
-      const opt = {
-        margin: 0,
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' },
+
+      // Capture at 2× resolution for sharpness
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+      })
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98)
+
+      // A4 dimensions in mm
+      const A4_W = 210
+      const A4_H = 297
+
+      // Scale image to fit A4, preserving aspect ratio (never upscale)
+      const canvasAspect = canvas.height / canvas.width
+      let imgW = A4_W
+      let imgH = A4_W * canvasAspect
+      if (imgH > A4_H) {
+        imgH = A4_H
+        imgW = A4_H / canvasAspect
       }
-      html2pdf().set(opt).from(element).save()
+      const xOffset = (A4_W - imgW) / 2
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+      pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH)
+      pdf.save(filename)
     } catch (err) {
       console.error('PDF export failed', err)
       window.print()
