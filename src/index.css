@@ -153,6 +153,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   background: linear-gradient(180deg, var(--cc-sky2) 0%, #fff 100%);
   border: 1px solid var(--cc-line); border-radius: 6px;
 }
+.cc-block { display: flex; flex-direction: column; gap: 4px; }
 .cc-block-h3 { font-size: 8pt; text-transform: uppercase; letter-spacing: 1.2px; color: var(--cc-cyan); font-weight: 700; margin-bottom: 4px; }
 .cc-name { font-size: 12pt; color: var(--cc-blue); font-weight: 700; margin-bottom: 2px; }
 .cc-addr { font-size: 9.5pt; color: var(--cc-ink); line-height: 1.5; }

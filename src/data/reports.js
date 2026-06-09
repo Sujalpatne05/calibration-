@@ -16,6 +16,53 @@ export const apiResponse = {
   ],
 }
 
+// List of available reports for search/selection
+export const reportsList = [
+  {
+    id: 1,
+    type: 'calibration',
+    certificate_no: 'SANC-CAL-2026-00508',
+    customer_name: 'Vijay Transtech Private Limited',
+    calibration_date: '05 Jun 2026',
+    status: 'Calibrated & Passed',
+    instrument_name: 'Pressure Gauge',
+  },
+  {
+    id: 2,
+    type: 'calibration',
+    certificate_no: 'SANC-CAL-2026-00509',
+    customer_name: 'Acme Labs Pvt. Ltd.',
+    calibration_date: '06 Jun 2026',
+    status: 'Calibrated & Passed',
+    instrument_name: 'Pressure Transmitter',
+  },
+  {
+    id: 3,
+    type: 'calibration',
+    certificate_no: 'SANC-CAL-2026-00510',
+    customer_name: 'TechFlow Solutions',
+    calibration_date: '07 Jun 2026',
+    status: 'Calibrated & Passed',
+    instrument_name: 'Digital Multimeter',
+  },
+  {
+    id: 4,
+    type: 'test',
+    tc_number: 'TC/160824/1043/1',
+    customer_name: 'BECTO FLEX CONTAINMENT SYSTEM PVT LTD',
+    tc_date: '16/08/2024',
+    item_name: 'DIFFERENTIAL PRESSURE GAUGE',
+  },
+  {
+    id: 5,
+    type: 'test',
+    tc_number: 'TC/150824/1042/1',
+    customer_name: 'Industrial Testing Labs',
+    tc_date: '15/08/2024',
+    item_name: 'FLOW METER',
+  },
+]
+
 // Full calibration certificate data (values change per report; format stays fixed)
 export const calibrationCertificateData = {
   certificate_no: 'SANC-CAL-2026-00508',

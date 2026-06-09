@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
-import { FileText, ClipboardCheck, Download, Printer } from 'lucide-react'
+import { FileText, ClipboardCheck, Download, Printer, Search, X } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
 import CalibrationCertificate from '../components/CalibrationCertificate'
 import TestConformanceCertificate from '../components/TestConformanceCertificate'
-import { calibrationCertificateData, testCertificateData } from '../data/reports'
+import { calibrationCertificateData, testCertificateData, reportsList } from '../data/reports'
 import Button from '../components/Button'
 
 const TABS = [
@@ -13,13 +13,44 @@ const TABS = [
 
 export default function Report() {
   const [tab, setTab] = useState('calibration')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [showSearchResults, setShowSearchResults] = useState(false)
   const printRef = useRef(null)
+
+  // Filter reports based on search query and current tab
+  const filteredReports = reportsList.filter(report => {
+    const matchesTab = report.type === tab
+    const matchesQuery = !searchQuery || 
+      report.certificate_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.tc_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.instrument_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      report.item_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesTab && matchesQuery
+  })
+
+  const handleSelectReport = (report) => {
+    setSelectedReport(report)
+    setShowSearchResults(false)
+    setSearchQuery('')
+  }
+
+  const handleClearSelection = () => {
+    setSelectedReport(null)
+    setSearchQuery('')
+  }
 
   async function exportPdf() {
     const wrapper = printRef.current
-    if (!wrapper) return
-    // The actual certificate article is the first child
+    if (!wrapper) {
+      console.error('No wrapper ref found')
+      return
+    }
+
     const element = wrapper.firstElementChild || wrapper
+    console.log('Element to capture:', element, 'Size:', element.offsetWidth, 'x', element.offsetHeight)
+
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import('html2canvas'),
@@ -31,92 +62,49 @@ export default function Report() {
           ? `calibration-certificate-${calibrationCertificateData.certificate_no}.pdf`
           : `test-certificate-${testCertificateData.tc_number}.pdf`
 
-      const SCALE = 2
-      const A4_W = 210  // mm
-      const A4_H = 297  // mm
-
-      // Capture the full certificate at 2× for sharpness
-      const fullCanvas = await html2canvas(element, {
-        scale: SCALE,
+      // Capture the element - use element's actual dimensions
+      const canvas = await html2canvas(element, {
+        scale: 2,
         useCORS: true,
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
+        allowTaint: true,
+        logging: true,
+        backgroundColor: '#ffffff',
       })
 
-      // ------------------------------------------------------------------
-      // Find the bottom edge of the header block so we can keep it at full
-      // size and scale only the body content below it.
-      // Selector covers both certificate types.
-      // ------------------------------------------------------------------
-      const headerEndEl = element.querySelector(
-        '.cc-title-block, .tc-cert-title'
-      )
-      const parentRect = element.getBoundingClientRect()
-      let splitPx = 0 // pixels from top of element (at 1×) where body starts
-      if (headerEndEl) {
-        const r = headerEndEl.getBoundingClientRect()
-        splitPx = r.bottom - parentRect.top + 8 // +8px breathing room
+      if (!canvas || canvas.width === 0 || canvas.height === 0) {
+        console.error('Canvas is empty after html2canvas')
+        window.print()
+        return
       }
 
-      const canvasW = fullCanvas.width        // pixels at SCALE×
-      const canvasH = fullCanvas.height
-      const splitCanvas = Math.round(splitPx * SCALE)  // split in canvas coords
+      console.log('Canvas created:', canvas.width, 'x', canvas.height)
 
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+      const imgData = canvas.toDataURL('image/jpeg', 0.95)
+      const A4_W = 210
+      const A4_H = 297
 
-      if (splitPx <= 0 || splitCanvas >= canvasH) {
-        // Fallback: scale whole certificate to fit A4
-        const aspect = canvasH / canvasW
-        let w = A4_W, h = A4_W * aspect
-        if (h > A4_H) { h = A4_H; w = A4_H / aspect }
-        pdf.addImage(
-          fullCanvas.toDataURL('image/jpeg', 0.98),
-          'JPEG', (A4_W - w) / 2, 0, w, h
-        )
+      // Calculate dimensions to fit A4 while maintaining aspect ratio
+      const imgWidth = A4_W
+      const imgHeight = (canvas.height / canvas.width) * imgWidth
+
+      if (imgHeight > A4_H) {
+        // Image is taller than one page - scale it down
+        const scale = A4_H / imgHeight
+        const w = imgWidth * scale
+        const h = A4_H
+        const x = (A4_W - w) / 2
+        pdf.addImage(imgData, 'JPEG', x, 0, w, h)
       } else {
-        // ---- Header portion: placed at full A4 width ----
-        const headerCanvas = document.createElement('canvas')
-        headerCanvas.width = canvasW
-        headerCanvas.height = splitCanvas
-        headerCanvas.getContext('2d').drawImage(
-          fullCanvas, 0, 0, canvasW, splitCanvas, 0, 0, canvasW, splitCanvas
-        )
-        // height in mm proportional to A4 width
-        const headerH_mm = (splitCanvas / canvasW) * A4_W
-        pdf.addImage(
-          headerCanvas.toDataURL('image/jpeg', 0.98),
-          'JPEG', 0, 0, A4_W, headerH_mm
-        )
-
-        // ---- Body portion: scale to fill remaining A4 space ----
-        const bodyCanvasH = canvasH - splitCanvas
-        const bodyCanvas = document.createElement('canvas')
-        bodyCanvas.width = canvasW
-        bodyCanvas.height = bodyCanvasH
-        bodyCanvas.getContext('2d').drawImage(
-          fullCanvas, 0, splitCanvas, canvasW, bodyCanvasH, 0, 0, canvasW, bodyCanvasH
-        )
-        const bodyAvailH_mm = A4_H - headerH_mm
-        const bodyNaturalH_mm = (bodyCanvasH / canvasW) * A4_W
-        // Scale body to fit available space (never upscale)
-        const bodyScale = bodyNaturalH_mm > bodyAvailH_mm
-          ? bodyAvailH_mm / bodyNaturalH_mm
-          : 1
-        const bodyW_mm = A4_W * bodyScale
-        const bodyH_mm = bodyNaturalH_mm * bodyScale
-        const bodyX = (A4_W - bodyW_mm) / 2
-        pdf.addImage(
-          bodyCanvas.toDataURL('image/jpeg', 0.98),
-          'JPEG', bodyX, headerH_mm, bodyW_mm, bodyH_mm
-        )
+        // Image fits on one page
+        const x = (A4_W - imgWidth) / 2
+        pdf.addImage(imgData, 'JPEG', x, 0, imgWidth, imgHeight)
       }
 
       pdf.save(filename)
+      console.log('PDF saved successfully')
     } catch (err) {
-      console.error('PDF export failed', err)
+      console.error('PDF export failed:', err)
       window.print()
     }
   }
@@ -153,7 +141,11 @@ export default function Report() {
           return (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id)
+                setSelectedReport(null)
+                setSearchQuery('')
+              }}
               className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
                 tab === t.id
                   ? 'bg-brand-600 text-white shadow-ring'
@@ -165,6 +157,87 @@ export default function Report() {
             </button>
           )
         })}
+      </div>
+
+      {/* Search Section */}
+      <div className="bg-white rounded-xl shadow-sm p-4">
+        <div className="relative">
+          <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 ring-1 ring-slate-200 focus-within:ring-brand-600 focus-within:ring-2">
+            <Search size={18} className="text-ink-faint" />
+            <input
+              type="text"
+              placeholder={`Search by certificate number, customer name, or ${tab === 'calibration' ? 'instrument' : 'item'}...`}
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setShowSearchResults(true)
+              }}
+              onFocus={() => setShowSearchResults(true)}
+              className="flex-1 bg-transparent outline-none text-ink placeholder-ink-faint"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setShowSearchResults(false)
+                }}
+                className="text-ink-faint hover:text-ink"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+
+          {/* Search Results Dropdown */}
+          {showSearchResults && searchQuery && filteredReports.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg ring-1 ring-slate-200 z-10 max-h-80 overflow-y-auto">
+              {filteredReports.map((report) => (
+                <button
+                  key={report.id}
+                  onClick={() => handleSelectReport(report)}
+                  className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
+                >
+                  <div className="flex flex-col gap-1">
+                    <div className="font-semibold text-ink">
+                      {report.certificate_no || report.tc_number}
+                    </div>
+                    <div className="text-sm text-ink-faint">{report.customer_name}</div>
+                    {report.instrument_name && (
+                      <div className="text-xs text-ink-faint">{report.instrument_name}</div>
+                    )}
+                    {report.item_name && (
+                      <div className="text-xs text-ink-faint">{report.item_name}</div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showSearchResults && searchQuery && filteredReports.length === 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg ring-1 ring-slate-200 z-10 p-4 text-center text-ink-faint">
+              No reports found matching your search.
+            </div>
+          )}
+        </div>
+
+        {/* Selected Report Info */}
+        {selectedReport && (
+          <div className="mt-4 p-3 bg-brand-50 rounded-lg border border-brand-200 flex items-center justify-between">
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-brand-900">
+                {selectedReport.certificate_no || selectedReport.tc_number}
+              </div>
+              <div className="text-xs text-brand-700 mt-1">{selectedReport.customer_name}</div>
+            </div>
+            <button
+              onClick={handleClearSelection}
+              className="text-brand-600 hover:text-brand-900 p-1"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Certificate preview — scrollable container with grey background */}
