@@ -16,8 +16,10 @@ export default function Report() {
   const printRef = useRef(null)
 
   async function exportPdf() {
-    const element = printRef.current
-    if (!element) return
+    const wrapper = printRef.current
+    if (!wrapper) return
+    // The actual certificate article is the first child
+    const element = wrapper.firstElementChild || wrapper
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import('html2canvas'),
@@ -29,9 +31,13 @@ export default function Report() {
           ? `calibration-certificate-${calibrationCertificateData.certificate_no}.pdf`
           : `test-certificate-${testCertificateData.tc_number}.pdf`
 
-      // Capture at 2× resolution for sharpness
-      const canvas = await html2canvas(element, {
-        scale: 2,
+      const SCALE = 2
+      const A4_W = 210  // mm
+      const A4_H = 297  // mm
+
+      // Capture the full certificate at 2× for sharpness
+      const fullCanvas = await html2canvas(element, {
+        scale: SCALE,
         useCORS: true,
         logging: false,
         scrollX: 0,
@@ -40,24 +46,74 @@ export default function Report() {
         height: element.scrollHeight,
       })
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.98)
-
-      // A4 dimensions in mm
-      const A4_W = 210
-      const A4_H = 297
-
-      // Scale image to fit A4, preserving aspect ratio (never upscale)
-      const canvasAspect = canvas.height / canvas.width
-      let imgW = A4_W
-      let imgH = A4_W * canvasAspect
-      if (imgH > A4_H) {
-        imgH = A4_H
-        imgW = A4_H / canvasAspect
+      // ------------------------------------------------------------------
+      // Find the bottom edge of the header block so we can keep it at full
+      // size and scale only the body content below it.
+      // Selector covers both certificate types.
+      // ------------------------------------------------------------------
+      const headerEndEl = element.querySelector(
+        '.cc-title-block, .tc-cert-title'
+      )
+      const parentRect = element.getBoundingClientRect()
+      let splitPx = 0 // pixels from top of element (at 1×) where body starts
+      if (headerEndEl) {
+        const r = headerEndEl.getBoundingClientRect()
+        splitPx = r.bottom - parentRect.top + 8 // +8px breathing room
       }
-      const xOffset = (A4_W - imgW) / 2
+
+      const canvasW = fullCanvas.width        // pixels at SCALE×
+      const canvasH = fullCanvas.height
+      const splitCanvas = Math.round(splitPx * SCALE)  // split in canvas coords
 
       const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-      pdf.addImage(imgData, 'JPEG', xOffset, 0, imgW, imgH)
+
+      if (splitPx <= 0 || splitCanvas >= canvasH) {
+        // Fallback: scale whole certificate to fit A4
+        const aspect = canvasH / canvasW
+        let w = A4_W, h = A4_W * aspect
+        if (h > A4_H) { h = A4_H; w = A4_H / aspect }
+        pdf.addImage(
+          fullCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', (A4_W - w) / 2, 0, w, h
+        )
+      } else {
+        // ---- Header portion: placed at full A4 width ----
+        const headerCanvas = document.createElement('canvas')
+        headerCanvas.width = canvasW
+        headerCanvas.height = splitCanvas
+        headerCanvas.getContext('2d').drawImage(
+          fullCanvas, 0, 0, canvasW, splitCanvas, 0, 0, canvasW, splitCanvas
+        )
+        // height in mm proportional to A4 width
+        const headerH_mm = (splitCanvas / canvasW) * A4_W
+        pdf.addImage(
+          headerCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', 0, 0, A4_W, headerH_mm
+        )
+
+        // ---- Body portion: scale to fill remaining A4 space ----
+        const bodyCanvasH = canvasH - splitCanvas
+        const bodyCanvas = document.createElement('canvas')
+        bodyCanvas.width = canvasW
+        bodyCanvas.height = bodyCanvasH
+        bodyCanvas.getContext('2d').drawImage(
+          fullCanvas, 0, splitCanvas, canvasW, bodyCanvasH, 0, 0, canvasW, bodyCanvasH
+        )
+        const bodyAvailH_mm = A4_H - headerH_mm
+        const bodyNaturalH_mm = (bodyCanvasH / canvasW) * A4_W
+        // Scale body to fit available space (never upscale)
+        const bodyScale = bodyNaturalH_mm > bodyAvailH_mm
+          ? bodyAvailH_mm / bodyNaturalH_mm
+          : 1
+        const bodyW_mm = A4_W * bodyScale
+        const bodyH_mm = bodyNaturalH_mm * bodyScale
+        const bodyX = (A4_W - bodyW_mm) / 2
+        pdf.addImage(
+          bodyCanvas.toDataURL('image/jpeg', 0.98),
+          'JPEG', bodyX, headerH_mm, bodyW_mm, bodyH_mm
+        )
+      }
+
       pdf.save(filename)
     } catch (err) {
       console.error('PDF export failed', err)
