@@ -272,11 +272,9 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .tc-watermark {
   position: absolute; top: 46%; left: 50%;
   transform: translate(-50%, -50%);
-  display: flex; align-items: center; gap: 18px;
   opacity: .08; pointer-events: none; z-index: 0;
 }
-.tc-watermark svg { width: 200px; height: 200px; }
-.tc-wm-text { font-family: var(--tc-font); font-weight: 800; font-size: 170px; letter-spacing: 6px; color: var(--tc-navy); line-height: 1; }
+.tc-watermark img { width: 260px; height: 260px; object-fit: contain; }
 
 .tc-letterhead {
   position: relative; z-index: 3;
@@ -356,6 +354,5 @@ input[type='date']::-webkit-calendar-picker-indicator {
   .tc-meta, .tc-meta-tc { grid-template-columns: 140px 1fr; }
   .tc-date { grid-column: 1 / -1; }
   .tc-specs { grid-template-columns: 130px 12px 1fr; }
-  .tc-wm-text { font-size: 90px; }
-  .tc-watermark svg { width: 110px; height: 110px; }
+  .tc-watermark img { width: 140px; height: 140px; }
 }
