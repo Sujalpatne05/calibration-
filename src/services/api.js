@@ -1,5 +1,5 @@
 // API Service - Centralized API calls for all endpoints
-const API_BASE = 'http://localhost:5000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const API_VERSION = '1.0.0'
 
 // Get token from localStorage
