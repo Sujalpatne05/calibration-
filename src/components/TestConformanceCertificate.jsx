@@ -3,45 +3,6 @@
  * certificate matching the SANC letterhead format.
  */
 import { Fragment } from 'react'
-import SancLogo from './SancLogo'
-
-const GearLogo = () => (
-  <svg
-    className="tc-logo-svg"
-    viewBox="0 0 100 100"
-    xmlns="http://www.w3.org/2000/svg"
-    role="img"
-    aria-label="SANC logo"
-  >
-    <g fill="#1b2a63">
-      {Array.from({ length: 12 }, (_, i) => (
-        <rect
-          key={i}
-          x="45.5"
-          y="1"
-          width="9"
-          height="14"
-          rx="2"
-          transform={`rotate(${i * 30} 50 50)`}
-        />
-      ))}
-    </g>
-    <circle cx="50" cy="50" r="41" fill="#1b2a63" />
-    <circle cx="50" cy="50" r="33" fill="#ffffff" />
-    <g stroke="#1b2a63" strokeWidth="1.4" strokeLinecap="round">
-      <line x1="24" y1="50" x2="28" y2="50" />
-      <line x1="72" y1="50" x2="76" y2="50" />
-      <line x1="29.5" y1="32" x2="32.7" y2="35" />
-      <line x1="70.5" y1="32" x2="67.3" y2="35" />
-      <line x1="50" y1="20" x2="50" y2="24" />
-    </g>
-    <line x1="50" y1="50" x2="63" y2="33" stroke="#d6262c" strokeWidth="2.4" strokeLinecap="round" />
-    <circle cx="50" cy="50" r="3.2" fill="#1b2a63" />
-    <rect x="17" y="55" width="66" height="16" rx="3.5" fill="#d6262c" />
-    <text x="50" y="66.8" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="12" letterSpacing="2" fill="#ffffff">SANC</text>
-    <text x="84" y="16" fontFamily="Arial, sans-serif" fontSize="7" fill="#1b2a63">®</text>
-  </svg>
-)
 
 const T = ({
   customer_name = '',
@@ -58,32 +19,12 @@ const T = ({
 
     {/* Watermark */}
     <div className="tc-watermark" aria-hidden="true">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <g fill="#1b2a63">
-          {Array.from({ length: 12 }, (_, i) => (
-            <rect key={i} x="45.5" y="1" width="9" height="14" rx="2" transform={`rotate(${i * 30} 50 50)`} />
-          ))}
-        </g>
-        <circle cx="50" cy="50" r="41" fill="#1b2a63" />
-        <circle cx="50" cy="50" r="33" fill="#ffffff" />
-        <g stroke="#1b2a63" strokeWidth="1.4" strokeLinecap="round">
-          <line x1="24" y1="50" x2="28" y2="50" />
-          <line x1="72" y1="50" x2="76" y2="50" />
-          <line x1="29.5" y1="32" x2="32.7" y2="35" />
-          <line x1="70.5" y1="32" x2="67.3" y2="35" />
-          <line x1="50" y1="20" x2="50" y2="24" />
-        </g>
-        <line x1="50" y1="50" x2="63" y2="33" stroke="#d6262c" strokeWidth="2.4" strokeLinecap="round" />
-        <circle cx="50" cy="50" r="3.2" fill="#1b2a63" />
-        <rect x="17" y="55" width="66" height="16" rx="3.5" fill="#d6262c" />
-        <text x="50" y="66.8" textAnchor="middle" fontFamily="Arial, sans-serif" fontWeight="700" fontSize="12" letterSpacing="2" fill="#ffffff">SANC</text>
-      </svg>
-      <span className="tc-wm-text">SANC</span>
+      <img src="/SANC_LOGO_-_Black.png" alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
     </div>
 
     {/* Letterhead */}
     <header className="tc-letterhead">
-      <GearLogo />
+      <img src="/SANC_LOGO_-_Black.png" alt="SANC" className="tc-logo-svg" style={{ objectFit: 'contain' }} />
       <div className="tc-brand-text">
         <div className="tc-company">SHRIRANG AUTOMATION AND CONTROLS PVT. LTD.</div>
         <div className="tc-iso">An ISO 9001:2015 Certified Company</div>
