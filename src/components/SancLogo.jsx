@@ -97,12 +97,15 @@ export default function SancLogo({ size = 72, className = '' }) {
 
       {/* White scale marks on dark section */}
       <g stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round">
-        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
-          const x = 48 + i * 13;
-          return (
-            <line key={i} x1={x} y1="132" x2={x} y2="138" />
-          );
-        })}
+        <line x1="48" y1="132" x2="48" y2="138" />
+        <line x1="61" y1="132" x2="61" y2="138" />
+        <line x1="74" y1="132" x2="74" y2="138" />
+        <line x1="87" y1="132" x2="87" y2="138" />
+        <line x1="100" y1="132" x2="100" y2="138" />
+        <line x1="113" y1="132" x2="113" y2="138" />
+        <line x1="126" y1="132" x2="126" y2="138" />
+        <line x1="139" y1="132" x2="139" y2="138" />
+        <line x1="152" y1="132" x2="152" y2="138" />
       </g>
 
       {/* Gauge needle - blue */}
