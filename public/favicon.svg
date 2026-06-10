@@ -1,6 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <circle cx="100" cy="100" r="84" fill="#1d4ed8"/>
-  <circle cx="100" cy="100" r="62" fill="#ffffff"/>
-  <rect x="46" y="88" width="108" height="26" rx="4" fill="#e11d2a"/>
-  <text x="100" y="107" text-anchor="middle" font-family="Arial" font-weight="800" font-size="20" fill="#fff">SANC</text>
+<svg width="32" height="32" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sanc-gear-small" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0066cc" />
+      <stop offset="55%" stop-color="#0052a3" />
+      <stop offset="100%" stop-color="#003d7a" />
+    </linearGradient>
+    <radialGradient id="sanc-dial-small" cx="50%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f5f5f5" />
+    </radialGradient>
+  </defs>
+
+  <!-- Gear body - blue circle -->
+  <circle cx="100" cy="100" r="90" fill="url(#sanc-gear-small)" />
+  
+  <!-- Inner white circle -->
+  <circle cx="100" cy="100" r="75" fill="url(#sanc-dial-small)" />
+  <circle cx="100" cy="100" r="75" fill="none" stroke="#ffffff" stroke-width="3" />
+
+  <!-- Red SANC banner -->
+  <rect x="40" y="90" width="120" height="32" rx="4" fill="#e11d2a" />
+  <text x="100" y="112" text-anchor="middle" font-family="Poppins, system-ui, sans-serif" font-weight="900" font-size="20" letter-spacing="1.5" fill="#ffffff">
+    SANC
+  </text>
+
+  <!-- Needle + hub -->
+  <line x1="100" y1="100" x2="135" y2="65" stroke="#0066cc" stroke-width="3" stroke-linecap="round" />
+  <circle cx="100" cy="100" r="6" fill="#0066cc" />
+  <circle cx="100" cy="100" r="3" fill="#ffffff" />
 </svg>

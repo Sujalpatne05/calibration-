@@ -1,14 +1,8 @@
 /**
- * SancLogo — inline SVG reconstruction of the SANC gear/gauge mark.
- * A blue cog ring surrounds a white dial face with a red needle and a
- * red "SANC" banner across the centre. Scales cleanly at any size.
- *
- * Swap this component out for the official logo asset when available
- * (drop the file into src/assets and replace the <svg> with an <img>).
+ * SancLogo — New SANC gear/gauge mark matching the updated design.
+ * Features prominent blue gear teeth, white dial face, red banner, and scale indicators.
  */
 export default function SancLogo({ size = 72, className = '' }) {
-  // 24 gear teeth around the rim
-  const teeth = Array.from({ length: 24 }, (_, i) => i)
   return (
     <svg
       width={size}
@@ -19,80 +13,110 @@ export default function SancLogo({ size = 72, className = '' }) {
       aria-label="SANC logo"
     >
       <defs>
-        <linearGradient id="sanc-gear" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#3b82f6" />
-          <stop offset="55%" stopColor="#1d4ed8" />
-          <stop offset="100%" stopColor="#1e3a8a" />
+        <linearGradient id="gear-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#1E90FF" />
+          <stop offset="50%" stopColor="#0066CC" />
+          <stop offset="100%" stopColor="#003D7A" />
         </linearGradient>
-        <radialGradient id="sanc-dial" cx="50%" cy="42%" r="65%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#e8eefc" />
+        <radialGradient id="dial-gradient" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#FFFFFF" />
+          <stop offset="100%" stopColor="#F0F0F0" />
         </radialGradient>
       </defs>
 
-      {/* Gear teeth */}
-      <g fill="url(#sanc-gear)">
-        {teeth.map((i) => {
-          const angle = (i * 360) / teeth.length
-          return (
-            <rect
-              key={i}
-              x="94"
-              y="2"
-              width="12"
-              height="26"
-              rx="3"
-              transform={`rotate(${angle} 100 100)`}
-            />
-          )
-        })}
+      {/* Outer gear teeth - 12 prominent teeth */}
+      <g id="teeth">
+        {/* Top */}
+        <polygon points="100,8 110,28 90,28" fill="url(#gear-gradient)" />
+        {/* Top-Right 1 */}
+        <polygon points="143,29 158,44 145,55" fill="url(#gear-gradient)" />
+        {/* Top-Right 2 */}
+        <polygon points="172,58 187,73 172,85" fill="url(#gear-gradient)" />
+        {/* Right */}
+        <polygon points="192,100 172,110 172,90" fill="url(#gear-gradient)" />
+        {/* Bottom-Right 2 */}
+        <polygon points="172,115 187,127 172,142" fill="url(#gear-gradient)" />
+        {/* Bottom-Right 1 */}
+        <polygon points="158,156 143,171 145,145" fill="url(#gear-gradient)" />
+        {/* Bottom */}
+        <polygon points="100,192 90,172 110,172" fill="url(#gear-gradient)" />
+        {/* Bottom-Left 1 */}
+        <polygon points="42,171 57,156 55,145" fill="url(#gear-gradient)" />
+        {/* Bottom-Left 2 */}
+        <polygon points="13,127 28,115 13,142" fill="url(#gear-gradient)" />
+        {/* Left */}
+        <polygon points="8,100 28,90 28,110" fill="url(#gear-gradient)" />
+        {/* Top-Left 2 */}
+        <polygon points="13,73 28,58 13,85" fill="url(#gear-gradient)" />
+        {/* Top-Left 1 */}
+        <polygon points="57,44 42,29 55,55" fill="url(#gear-gradient)" />
       </g>
 
-      {/* Gear body */}
-      <circle cx="100" cy="100" r="84" fill="url(#sanc-gear)" />
-      {/* Inner dial face */}
-      <circle cx="100" cy="100" r="62" fill="url(#sanc-dial)" />
-      <circle cx="100" cy="100" r="62" fill="none" stroke="#1e3a8a" strokeWidth="3" />
+      {/* Outer blue ring */}
+      <circle cx="100" cy="100" r="88" fill="url(#gear-gradient)" />
 
-      {/* Dial tick marks (top arc) */}
-      <g stroke="#1e3a8a" strokeWidth="2.5" strokeLinecap="round">
-        {Array.from({ length: 11 }, (_, i) => {
-          const a = (-150 + i * 30) * (Math.PI / 180)
-          const r1 = 54
-          const r2 = i % 5 === 0 ? 44 : 48
-          return (
-            <line
-              key={i}
-              x1={100 + r1 * Math.cos(a)}
-              y1={100 + r1 * Math.sin(a)}
-              x2={100 + r2 * Math.cos(a)}
-              y2={100 + r2 * Math.sin(a)}
-            />
-          )
-        })}
+      {/* White dial face */}
+      <circle cx="100" cy="100" r="72" fill="url(#dial-gradient)" />
+      <circle cx="100" cy="100" r="72" fill="none" stroke="#FFFFFF" strokeWidth="3" />
+
+      {/* Blue clock marks on top half */}
+      <g stroke="#1E90FF" strokeWidth="2.5" strokeLinecap="round">
+        {/* 12 o'clock */}
+        <line x1="100" y1="32" x2="100" y2="42" />
+        {/* 1 o'clock area */}
+        <line x1="125" y1="36" x2="120" y2="45" />
+        {/* 2 o'clock area */}
+        <line x1="145" y1="47" x2="137" y2="54" />
+        {/* 3 o'clock */}
+        <line x1="168" y1="100" x2="158" y2="100" />
+        {/* 4 o'clock area */}
+        <line x1="145" y1="153" x2="137" y2="146" />
+        {/* 5 o'clock area */}
+        <line x1="125" y1="164" x2="120" y2="155" />
       </g>
 
-      {/* Red SANC banner */}
-      <rect x="46" y="88" width="108" height="26" rx="4" fill="#e11d2a" />
+      {/* Red banner background */}
+      <rect x="35" y="88" width="130" height="36" rx="5" fill="#E11D2A" />
+
+      {/* White text "SANC" */}
       <text
         x="100"
-        y="106"
+        y="115"
         textAnchor="middle"
-        fontFamily="Poppins, system-ui, sans-serif"
-        fontWeight="800"
-        fontSize="20"
-        letterSpacing="2"
-        fill="#ffffff"
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontWeight="bold"
+        fontSize="28"
+        letterSpacing="3"
+        fill="#FFFFFF"
       >
         SANC
       </text>
 
-      {/* Needle + hub */}
-      <line x1="100" y1="100" x2="132" y2="74" stroke="#e11d2a" strokeWidth="4" strokeLinecap="round" />
-      <circle cx="100" cy="100" r="6" fill="#1e3a8a" />
+      {/* Dark blue bottom section with scale marks */}
+      <ellipse cx="100" cy="135" rx="68" ry="20" fill="#003D7A" opacity="0.9" />
 
-      {/* Registered mark */}
-      <text x="178" y="34" fontFamily="Poppins" fontSize="12" fill="#1e3a8a">®</text>
+      {/* White scale marks on dark section */}
+      <g stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round">
+        {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => {
+          const x = 48 + i * 13;
+          return (
+            <line key={i} x1={x} y1="132" x2={x} y2="138" />
+          );
+        })}
+      </g>
+
+      {/* Gauge needle - blue */}
+      <line x1="100" y1="100" x2="138" y2="62" stroke="#1E90FF" strokeWidth="3" strokeLinecap="round" />
+      
+      {/* Needle hub - dark blue center */}
+      <circle cx="100" cy="100" r="8" fill="#003D7A" />
+      {/* Needle hub - white center dot */}
+      <circle cx="100" cy="100" r="4" fill="#FFFFFF" />
+
+      {/* Registered trademark symbol */}
+      <text x="175" y="30" fontFamily="Arial" fontSize="12" fontWeight="bold" fill="#666666">
+        ®
+      </text>
     </svg>
   )
 }

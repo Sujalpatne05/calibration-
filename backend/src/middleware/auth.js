@@ -1,0 +1,29 @@
+import jwt from 'jsonwebtoken';
+import logger from '../config/logger.js';
+
+export const authenticate = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization
+    const token = authHeader?.split(' ')[1]
+    
+    if (!token) {
+      logger.warn('No token provided in Authorization header')
+      return res.status(401).json({ error: 'No token provided' })
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    req.user = decoded
+    next()
+  } catch (error) {
+    logger.error('Authentication failed:', error.message)
+    res.status(401).json({ error: 'Invalid token' })
+  }
+}
+
+export const generateToken = (userId, username) => {
+  return jwt.sign(
+    { userId, username },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+  );
+};

@@ -4,23 +4,55 @@ import { Eye, EyeOff, User, Lock } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
 import FormInput from '../components/FormInput'
 import Button from '../components/Button'
+import { authAPI } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
   const navigate = useNavigate()
-  const { login } = useAuth()
-  const [username, setUsername] = useState('sanc')
-  const [password, setPassword] = useState('')
+  const { login: setAuth } = useAuth()
+  const [username, setUsername] = useState('admin')
+  const [password, setPassword] = useState('admin123')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
       setError('Please enter both username and password.')
       return
     }
-    login(username.trim())
-    navigate('/dashboard', { replace: true })
+
+    try {
+      setLoading(true)
+      setError('')
+      const response = await authAPI.login(username.trim(), password.trim())
+      
+      // Store token in localStorage
+      if (response.token) {
+        // Clear any old auth data first
+        localStorage.removeItem('sanc_auth')
+        
+        localStorage.setItem('token', response.token)
+        localStorage.setItem('user', JSON.stringify(response.user))
+        
+        // Update auth context
+        setAuth(response.user.username)
+        
+        console.log('Login successful, token stored:', response.token.substring(0, 50) + '...')
+        
+        // Ensure localStorage is synced before navigation
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true })
+        }, 100)
+      } else {
+        setError('Login failed: No token received')
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed. Please check your credentials.')
+      console.error('Login error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -51,7 +83,8 @@ export default function Login() {
               setError('')
             }}
             placeholder="Enter username"
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => e.key === 'Enter' && !loading && handleSubmit()}
+            disabled={loading}
           />
 
           <FormInput
@@ -64,13 +97,15 @@ export default function Login() {
               setError('')
             }}
             placeholder="Enter password"
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+            onKeyDown={(e) => e.key === 'Enter' && !loading && handleSubmit()}
+            disabled={loading}
             trailing={
               <button
                 type="button"
                 onClick={() => setShowPwd((s) => !s)}
                 className="rounded-lg p-2 text-ink-faint transition hover:text-ink"
                 aria-label={showPwd ? 'Hide password' : 'Show password'}
+                disabled={loading}
               >
                 {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -79,12 +114,17 @@ export default function Login() {
 
           {error && <p className="text-sm font-medium text-red-500">{error}</p>}
 
-          <Button size="lg" className="w-full" onClick={handleSubmit}>
-            Login
+          <Button 
+            size="lg" 
+            className="w-full" 
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
 
           <p className="pt-2 text-center text-xs text-ink-faint">
-            Demo build — any username &amp; password will sign you in.
+            Demo credentials: username: <strong>admin</strong>, password: <strong>admin123</strong>
           </p>
         </div>
       </div>

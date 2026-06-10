@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Plus, EyeOff, ListChecks } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DataTable from '../components/DataTable'
@@ -6,8 +6,7 @@ import Button from '../components/Button'
 import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import RowActions from '../components/RowActions'
-import { instruments as seed } from '../data/instruments'
-import { customers } from '../data/customers'
+import { instrumentsAPI, customersAPI } from '../services/api'
 
 const EMPTY = {
   name: '',
@@ -15,7 +14,7 @@ const EMPTY = {
   make: '',
   model: '',
   category: '',
-  customer: '',
+  customerId: '',
   dueDate: '',
   ignored: false,
 }
@@ -26,25 +25,48 @@ const fmtDate = (d) =>
     : '—'
 
 export default function Instruments() {
-  const [rows, setRows] = useState(seed)
+  const [rows, setRows] = useState([])
+  const [customers, setCustomers] = useState([])
   const [query, setQuery] = useState('')
   const [showIgnored, setShowIgnored] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
 
+  // Fetch instruments and customers on mount
+  useEffect(() => {
+    fetchInstruments()
+    fetchCustomers()
+  }, [query, showIgnored])
+
+  const fetchInstruments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await instrumentsAPI.getAll(query, showIgnored ? true : null)
+      setRows(data)
+    } catch (err) {
+      setError('Failed to fetch instruments')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchCustomers = async () => {
+    try {
+      const data = await customersAPI.getAll()
+      setCustomers(data)
+    } catch (err) {
+      console.error('Failed to fetch customers:', err)
+    }
+  }
+
   const results = useMemo(() => {
-    const q = query.trim().toLowerCase()
     return rows
-      .filter((r) => r.ignored === showIgnored)
-      .filter((r) =>
-        !q
-          ? true
-          : [r.name, r.serial, r.make, r.model, r.category, r.customer].some((f) =>
-              String(f).toLowerCase().includes(q),
-            ),
-      )
-  }, [rows, query, showIgnored])
+  }, [rows])
 
   const openAdd = () => {
     setEditing(null)
@@ -58,24 +80,47 @@ export default function Instruments() {
     setModalOpen(true)
   }
 
-  const handleDelete = (row) => {
-    if (window.confirm(`Delete instrument “${row.name}”?`)) {
-      setRows((r) => r.filter((x) => x.id !== row.id))
+  const handleDelete = async (row) => {
+    if (window.confirm(`Delete instrument "${row.name}"?`)) {
+      try {
+        await instrumentsAPI.delete(row.id)
+        setRows((r) => r.filter((x) => x.id !== row.id))
+      } catch (err) {
+        alert('Failed to delete instrument')
+        console.error(err)
+      }
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) return
-    if (editing) {
-      setRows((r) => r.map((x) => (x.id === editing.id ? { ...x, ...form } : x)))
-    } else {
-      setRows((r) => [{ id: Date.now(), ...form }, ...r])
+    try {
+      setLoading(true)
+      if (editing) {
+        const updated = await instrumentsAPI.update(editing.id, form)
+        setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
+      } else {
+        const created = await instrumentsAPI.create(form)
+        setRows((r) => [created, ...r])
+      }
+      setModalOpen(false)
+      setForm(EMPTY)
+    } catch (err) {
+      alert('Failed to save instrument')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-    setModalOpen(false)
+  }
+
+  const getCustomerName = (customerId) => {
+    return customers.find((c) => c.id === customerId)?.name || ''
   }
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <SearchBar
@@ -92,7 +137,7 @@ export default function Instruments() {
             {showIgnored ? <ListChecks size={18} /> : <EyeOff size={18} />}
             {showIgnored ? 'View Active' : 'View Ignored'}
           </Button>
-          <Button onClick={openAdd}>
+          <Button onClick={openAdd} disabled={loading}>
             <Plus size={18} /> Add Instrument
           </Button>
         </div>
@@ -105,7 +150,7 @@ export default function Instruments() {
       <DataTable
         rowKey={(r) => r.id}
         data={results}
-        emptyMessage="No instruments to show."
+        emptyMessage={loading ? 'Loading...' : 'No instruments to show.'}
         columns={[
           { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
           { key: 'name', header: 'Instrument', className: 'font-medium' },
@@ -113,7 +158,12 @@ export default function Instruments() {
           { key: 'make', header: 'Make', className: 'text-ink-soft' },
           { key: 'model', header: 'Model' },
           { key: 'category', header: 'Category', className: 'text-ink-soft' },
-          { key: 'customer', header: 'Customer', className: 'text-ink-soft max-w-[14rem]' },
+          { 
+            key: 'customerId', 
+            header: 'Customer', 
+            className: 'text-ink-soft max-w-[14rem]',
+            render: (row) => getCustomerName(row.customerId)
+          },
           { key: 'dueDate', header: 'Cal. Due', render: (r) => fmtDate(r.dueDate) },
           {
             key: 'actions',
@@ -133,8 +183,8 @@ export default function Instruments() {
         title={editing ? 'Edit Instrument' : 'Add Instrument'}
         maxWidth="max-w-lg"
         footer={
-          <Button className="w-full" onClick={handleSave}>
-            Save
+          <Button className="w-full" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save'}
           </Button>
         }
       >
@@ -172,13 +222,13 @@ export default function Instruments() {
           <div className="w-full">
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">Customer</label>
             <select
-              value={form.customer}
-              onChange={(e) => setForm({ ...form, customer: e.target.value })}
+              value={form.customerId}
+              onChange={(e) => setForm({ ...form, customerId: parseInt(e.target.value) })}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
             >
               <option value="">Select customer…</option>
               {customers.map((c) => (
-                <option key={c.id} value={c.name}>
+                <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}

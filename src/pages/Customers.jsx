@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DataTable from '../components/DataTable'
@@ -7,16 +7,37 @@ import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import RowActions from '../components/RowActions'
 import { useSearch } from '../hooks/useSearch'
-import { customers as seed } from '../data/customers'
+import { customersAPI } from '../services/api'
 
 const EMPTY = { name: '', address: '', email: '', phone: '' }
 
 export default function Customers() {
-  const [rows, setRows] = useState(seed)
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const { query, setQuery, results } = useSearch(rows, ['name', 'email', 'phone'])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
+
+  // Fetch customers on mount and when search changes
+  useEffect(() => {
+    fetchCustomers()
+  }, [query])
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await customersAPI.getAll(query)
+      setRows(data)
+    } catch (err) {
+      setError('Failed to fetch customers')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const openAdd = () => {
     setEditing(null)
@@ -30,24 +51,43 @@ export default function Customers() {
     setModalOpen(true)
   }
 
-  const handleDelete = (row) => {
-    if (window.confirm(`Delete customer “${row.name}”?`)) {
-      setRows((r) => r.filter((c) => c.id !== row.id))
+  const handleDelete = async (row) => {
+    if (window.confirm(`Delete customer "${row.name}"?`)) {
+      try {
+        await customersAPI.delete(row.id)
+        setRows((r) => r.filter((c) => c.id !== row.id))
+      } catch (err) {
+        alert('Failed to delete customer')
+        console.error(err)
+      }
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) return
-    if (editing) {
-      setRows((r) => r.map((c) => (c.id === editing.id ? { ...c, ...form } : c)))
-    } else {
-      setRows((r) => [{ id: Date.now(), ...form }, ...r])
+    try {
+      setLoading(true)
+      if (editing) {
+        const updated = await customersAPI.update(editing.id, form)
+        setRows((r) => r.map((c) => (c.id === editing.id ? updated : c)))
+      } else {
+        const created = await customersAPI.create(form)
+        setRows((r) => [created, ...r])
+      }
+      setModalOpen(false)
+      setForm(EMPTY)
+    } catch (err) {
+      alert('Failed to save customer')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-    setModalOpen(false)
   }
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar
@@ -56,7 +96,7 @@ export default function Customers() {
           placeholder="Customer name"
           className="w-full sm:max-w-sm"
         />
-        <Button onClick={openAdd} className="w-full sm:w-auto">
+        <Button onClick={openAdd} className="w-full sm:w-auto" disabled={loading}>
           <Plus size={18} /> Add Customer
         </Button>
       </div>
@@ -66,7 +106,7 @@ export default function Customers() {
       <DataTable
         rowKey={(r) => r.id}
         data={results}
-        emptyMessage="No customers match your search."
+        emptyMessage={loading ? 'Loading...' : 'No customers match your search.'}
         columns={[
           { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
           { key: 'name', header: 'Name', className: 'font-medium max-w-[16rem]' },
@@ -94,8 +134,8 @@ export default function Customers() {
         onClose={() => setModalOpen(false)}
         title={editing ? 'Edit Customer' : 'Add Customer'}
         footer={
-          <Button className="w-full" onClick={handleSave}>
-            Save
+          <Button className="w-full" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save'}
           </Button>
         }
       >

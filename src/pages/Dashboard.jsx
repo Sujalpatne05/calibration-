@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Users, Boxes, ArrowRight, User, Pencil, Eye } from 'lucide-react'
+import { Box, Users, Boxes, ArrowRight } from 'lucide-react'
 import DashboardCard from '../components/DashboardCard'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
-import { kpis, quickTasks, recentActivities } from '../data/dashboard'
+import { dashboardAPI } from '../services/api'
 
 const QUICK_ACTIONS = [
   {
@@ -34,118 +35,146 @@ const QUICK_ACTIONS = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [kpis, setKpis] = useState([])
+  const [tasks, setTasks] = useState([])
+  const [activities, setActivities] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      // Ensure token is available
+      const token = localStorage.getItem('token')
+      if (!token) {
+        setError('No authentication token found. Please login again.')
+        return
+      }
+
+      setLoading(true)
+      setError(null)
+      const [kpiData, taskData, activityData] = await Promise.all([
+        dashboardAPI.getKPIs(),
+        dashboardAPI.getQuickTasks(),
+        dashboardAPI.getRecentActivities(),
+      ])
+      setKpis(kpiData)
+      setTasks(taskData)
+      setActivities(activityData)
+    } catch (err) {
+      setError('Failed to fetch dashboard data')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fmtDate = (d) =>
+    new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 
   return (
     <div className="space-y-8">
+      {error && <div className="rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
       {/* KPI cards */}
       <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {kpis.map((k, i) => (
-          <DashboardCard
-            key={k.id}
-            value={k.value}
-            label={k.label}
-            max={k.max}
-            delay={i * 120}
-          />
-        ))}
+        {loading ? (
+          <div className="col-span-full text-center text-ink-faint">Loading KPIs...</div>
+        ) : (
+          <>
+            <DashboardCard
+              value={kpis.pending_instruments || 0}
+              label="Pending Instruments"
+              delay={0}
+            />
+            <DashboardCard
+              value={kpis.standards_due || 0}
+              label="Standards Due"
+              delay={120}
+            />
+            <DashboardCard
+              value={kpis.pending_customers || 0}
+              label="Pending Customers"
+              delay={240}
+            />
+          </>
+        )}
       </section>
 
-      {/* Quick tasklist + Quick actions */}
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Quick tasklist */}
-        <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 lg:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold text-ink">Quick tasklist</h2>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-ink-soft">
-              Items: {quickTasks.length}
-            </span>
-          </div>
+      {/* Quick actions */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {QUICK_ACTIONS.map((action) => {
+          const Icon = action.icon
+          return (
+            <button
+              key={action.id}
+              onClick={() => navigate(action.to)}
+              className="group rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-400"
+            >
+              <div className="flex items-start justify-between">
+                <div className={`rounded-xl p-3 ${action.color}`}>
+                  <Icon size={24} />
+                </div>
+                <ArrowRight size={20} className={`transition group-hover:translate-x-1 ${action.arrow}`} />
+              </div>
+              <p className="mt-4 font-semibold text-ink">{action.label}</p>
+            </button>
+          )
+        })}
+      </section>
 
-          <DataTable
-            rowKey={(r) => r.id}
-            data={quickTasks}
-            columns={[
-              {
-                key: 'type',
-                header: 'Type',
-                render: () => (
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-ink-soft">
-                    <User size={16} />
-                  </span>
-                ),
-              },
-              { key: 'name', header: 'Name', className: 'font-medium' },
-              {
-                key: 'action',
-                header: 'Action',
-                align: 'right',
-                render: () => (
-                  <div className="flex items-center justify-end gap-1">
-                    <button className="rounded-lg p-2 text-brand-500 transition hover:bg-brand-50">
-                      <Pencil size={16} />
-                    </button>
-                    <button className="rounded-lg p-2 text-ink-faint transition hover:bg-slate-100">
-                      <Eye size={16} />
-                    </button>
+      {/* Tasks and Activities */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Quick Tasks */}
+        <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Quick Tasks</h2>
+          {loading ? (
+            <div className="text-center text-ink-faint">Loading tasks...</div>
+          ) : !Array.isArray(tasks) || tasks.length === 0 ? (
+            <p className="text-center text-ink-faint">No pending tasks</p>
+          ) : (
+            <div className="space-y-3">
+              {tasks.map((task) => (
+                <div key={task.id} className="flex items-start gap-3 rounded-lg bg-slate-50 p-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-brand-400" />
+                  <div>
+                    <p className="font-medium text-ink">{task.title || task.name}</p>
+                    <p className="text-sm text-ink-faint">{task.type}</p>
                   </div>
-                ),
-              },
-            ]}
-          />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Quick actions */}
-        <div className="space-y-4">
-          {QUICK_ACTIONS.map((a) => {
-            const Icon = a.icon
-            return (
-              <button
-                key={a.id}
-                onClick={() => navigate(a.to)}
-                className="group flex w-full items-center gap-4 rounded-2xl bg-white p-5 text-left shadow-card ring-1 ring-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-soft"
-              >
-                <span className={`grid h-12 w-12 place-items-center rounded-xl ${a.color}`}>
-                  <Icon size={22} />
-                </span>
-                <span className="flex-1 font-semibold text-ink">{a.label}</span>
-                <ArrowRight
-                  size={20}
-                  className={`${a.arrow} transition-transform group-hover:translate-x-1`}
-                />
-              </button>
-            )
-          })}
+        {/* Recent Activities */}
+        <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Recent Activities</h2>
+          {loading ? (
+            <div className="text-center text-ink-faint">Loading activities...</div>
+          ) : !Array.isArray(activities) || activities.length === 0 ? (
+            <p className="text-center text-ink-faint">No recent activities</p>
+          ) : (
+            <div className="space-y-3">
+              {activities.map((activity) => (
+                <div key={activity.id} className="flex items-start gap-3 border-b border-slate-100 pb-3 last:border-0">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-emerald-400" />
+                  <div>
+                    <p className="font-medium text-ink">{activity.action}</p>
+                    <p className="text-xs text-ink-faint">{activity.detail}</p>
+                    <p className="text-xs text-ink-faint">
+                      {activity.createdAt ? fmtDate(activity.createdAt) : ''}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </section>
-
-      {/* Recent activities */}
-      <section className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100">
-        <h2 className="mb-4 font-display text-lg font-semibold text-ink">Recent activities</h2>
-        <DataTable
-          rowKey={(r) => r.id}
-          data={recentActivities}
-          columns={[
-            { key: 'action', header: 'Activity', className: 'font-medium' },
-            { key: 'detail', header: 'Details', className: 'text-ink-soft' },
-            {
-              key: 'date',
-              header: 'Date',
-              render: (r) =>
-                new Date(r.date).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                }),
-            },
-            {
-              key: 'status',
-              header: 'Status',
-              align: 'right',
-              render: (r) => <StatusBadge status={r.status} />,
-            },
-          ]}
-        />
-      </section>
+      </div>
     </div>
   )
 }

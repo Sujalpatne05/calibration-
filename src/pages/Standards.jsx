@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DataTable from '../components/DataTable'
@@ -7,11 +7,11 @@ import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import RowActions from '../components/RowActions'
 import { useSearch } from '../hooks/useSearch'
-import { standards as seed } from '../data/standards'
+import { standardsAPI, instrumentsAPI } from '../services/api'
 
 const EMPTY = {
-  instrument: '',
   instrumentId: '',
+  instrument: '',
   calibrationDate: '',
   reportNo: '',
   certificateNo: '',
@@ -23,7 +23,10 @@ const fmtDate = (d) =>
     : '—'
 
 export default function Standards() {
-  const [rows, setRows] = useState(seed)
+  const [rows, setRows] = useState([])
+  const [instruments, setInstruments] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const { query, setQuery, results } = useSearch(rows, [
     'instrument',
     'instrumentId',
@@ -33,6 +36,34 @@ export default function Standards() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
+
+  useEffect(() => {
+    fetchStandards()
+    fetchInstruments()
+  }, [query])
+
+  const fetchStandards = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await standardsAPI.getAll(query)
+      setRows(data)
+    } catch (err) {
+      setError('Failed to fetch standards')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchInstruments = async () => {
+    try {
+      const data = await instrumentsAPI.getAll()
+      setInstruments(data)
+    } catch (err) {
+      console.error('Failed to fetch instruments:', err)
+    }
+  }
 
   const openAdd = () => {
     setEditing(null)
@@ -46,32 +77,52 @@ export default function Standards() {
     setModalOpen(true)
   }
 
-  const handleDelete = (row) => {
-    if (window.confirm(`Delete standard “${row.instrument}”?`)) {
-      setRows((r) => r.filter((x) => x.id !== row.id))
+  const handleDelete = async (row) => {
+    if (window.confirm(`Delete standard "${row.certificateNo}"?`)) {
+      try {
+        await standardsAPI.delete(row.id)
+        setRows((r) => r.filter((x) => x.id !== row.id))
+      } catch (err) {
+        alert('Failed to delete standard')
+        console.error(err)
+      }
     }
   }
 
-  const handleSave = () => {
-    if (!form.instrument.trim()) return
-    if (editing) {
-      setRows((r) => r.map((x) => (x.id === editing.id ? { ...x, ...form } : x)))
-    } else {
-      setRows((r) => [{ id: Date.now(), ...form }, ...r])
+  const handleSave = async () => {
+    if (!form.instrumentId || !form.certificateNo.trim()) return
+    try {
+      setLoading(true)
+      if (editing) {
+        const updated = await standardsAPI.update(editing.id, form)
+        setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
+      } else {
+        const created = await standardsAPI.create(form)
+        setRows((r) => [created, ...r])
+      }
+      setModalOpen(false)
+      setForm(EMPTY)
+    } catch (err) {
+      alert('Failed to save standard')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-    setModalOpen(false)
   }
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
+      {/* Toolbar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar
           value={query}
           onChange={setQuery}
-          placeholder="Instrument name"
+          placeholder="Certificate no"
           className="w-full sm:max-w-sm"
         />
-        <Button onClick={openAdd} className="w-full sm:w-auto">
+        <Button onClick={openAdd} disabled={loading}>
           <Plus size={18} /> Add Standard
         </Button>
       </div>
@@ -81,18 +132,14 @@ export default function Standards() {
       <DataTable
         rowKey={(r) => r.id}
         data={results}
-        emptyMessage="No standards match your search."
+        emptyMessage={loading ? 'Loading...' : 'No standards match your search.'}
         columns={[
           { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
           { key: 'instrument', header: 'Instrument', className: 'font-medium' },
           { key: 'instrumentId', header: 'Instrument ID', className: 'text-ink-soft' },
-          {
-            key: 'calibrationDate',
-            header: 'Calibration Date',
-            render: (r) => fmtDate(r.calibrationDate),
-          },
+          { key: 'calibrationDate', header: 'Cal. Date', render: (r) => fmtDate(r.calibrationDate) },
           { key: 'reportNo', header: 'Report No', className: 'text-ink-soft' },
-          { key: 'certificateNo', header: 'Certificate No' },
+          { key: 'certificateNo', header: 'Certificate No', className: 'font-medium' },
           {
             key: 'actions',
             header: 'Actions',
@@ -104,30 +151,37 @@ export default function Standards() {
         ]}
       />
 
+      {/* Add / Edit modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? 'Edit Standard' : 'Add Standard'}
         maxWidth="max-w-lg"
         footer={
-          <Button className="w-full" onClick={handleSave}>
-            Save
+          <Button className="w-full" onClick={handleSave} disabled={loading}>
+            {loading ? 'Saving...' : 'Save'}
           </Button>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormInput
-            label="Instrument"
-            value={form.instrument}
-            onChange={(e) => setForm({ ...form, instrument: e.target.value })}
-            placeholder="e.g. Digital Manometer"
-          />
-          <FormInput
-            label="Instrument ID"
-            value={form.instrumentId}
-            onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
-            placeholder="e.g. 477AV-2"
-          />
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instrument</label>
+            <select
+              value={form.instrumentId}
+              onChange={(e) => {
+                const instrument = instruments.find((i) => i.id === parseInt(e.target.value))
+                setForm({ ...form, instrumentId: parseInt(e.target.value), instrument: instrument?.name || '' })
+              }}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            >
+              <option value="">Select instrument…</option>
+              {instruments.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <FormInput
             label="Calibration Date"
             type="date"
@@ -138,14 +192,13 @@ export default function Standards() {
             label="Report Number"
             value={form.reportNo}
             onChange={(e) => setForm({ ...form, reportNo: e.target.value })}
-            placeholder="e.g. CAL-25100187/PR/01"
+            placeholder="e.g. CAL-001"
           />
           <FormInput
             label="Certificate Number"
             value={form.certificateNo}
             onChange={(e) => setForm({ ...form, certificateNo: e.target.value })}
-            placeholder="e.g. 005PWD"
-            className="sm:col-span-2"
+            placeholder="e.g. CERT-001"
           />
         </div>
       </Modal>

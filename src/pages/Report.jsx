@@ -1,10 +1,10 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { FileText, ClipboardCheck, Download, Printer, Search, X } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
 import CalibrationCertificate from '../components/CalibrationCertificate'
 import TestConformanceCertificate from '../components/TestConformanceCertificate'
-import { calibrationCertificateData, testCertificateData, reportsList } from '../data/reports'
 import Button from '../components/Button'
+import { reportsAPI } from '../services/api'
 
 const TABS = [
   { id: 'calibration', label: 'Calibration Certificate', icon: ClipboardCheck },
@@ -16,18 +16,40 @@ export default function Report() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedReport, setSelectedReport] = useState(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const printRef = useRef(null)
 
-  // Filter reports based on search query and current tab
-  const filteredReports = reportsList.filter(report => {
-    const matchesTab = report.type === tab
-    const matchesQuery = !searchQuery || 
-      report.certificate_no?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.tc_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.instrument_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      report.item_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesTab && matchesQuery
+  // Fetch reports on mount
+  useEffect(() => {
+    fetchReports()
+  }, [tab])
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await reportsAPI.getAll(tab)
+      setReports(data)
+    } catch (err) {
+      setError('Failed to fetch reports')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filter reports based on search query
+  const filteredReports = reports.filter((report) => {
+    if (!searchQuery) return true
+    const q = searchQuery.toLowerCase()
+    return (
+      report.certificateNo?.toLowerCase().includes(q) ||
+      report.tcNumber?.toLowerCase().includes(q) ||
+      report.customer?.name?.toLowerCase().includes(q) ||
+      report.instrumentName?.toLowerCase().includes(q)
+    )
   })
 
   const handleSelectReport = (report) => {
@@ -49,7 +71,6 @@ export default function Report() {
     }
 
     const element = wrapper.firstElementChild || wrapper
-    console.log('Element to capture:', element, 'Size:', element.offsetWidth, 'x', element.offsetHeight)
 
     try {
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -57,198 +78,198 @@ export default function Report() {
         import('jspdf'),
       ])
 
-      const filename =
-        tab === 'calibration'
-          ? `calibration-certificate-${calibrationCertificateData.certificate_no}.pdf`
-          : `test-certificate-${testCertificateData.tc_number}.pdf`
-
-      // Capture the element - use element's actual dimensions
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
-        allowTaint: true,
-        logging: true,
         backgroundColor: '#ffffff',
       })
 
-      if (!canvas || canvas.width === 0 || canvas.height === 0) {
-        console.error('Canvas is empty after html2canvas')
-        window.print()
-        return
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      const pageHeight = 297
+
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
       }
 
-      console.log('Canvas created:', canvas.width, 'x', canvas.height)
-
-      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-      const imgData = canvas.toDataURL('image/jpeg', 0.95)
-      const A4_W = 210
-      const A4_H = 297
-
-      // Calculate dimensions to fit A4 while maintaining aspect ratio
-      const imgWidth = A4_W
-      const imgHeight = (canvas.height / canvas.width) * imgWidth
-
-      if (imgHeight > A4_H) {
-        // Image is taller than one page - scale it down
-        const scale = A4_H / imgHeight
-        const w = imgWidth * scale
-        const h = A4_H
-        const x = (A4_W - w) / 2
-        pdf.addImage(imgData, 'JPEG', x, 0, w, h)
-      } else {
-        // Image fits on one page
-        const x = (A4_W - imgWidth) / 2
-        pdf.addImage(imgData, 'JPEG', x, 0, imgWidth, imgHeight)
-      }
-
-      pdf.save(filename)
-      console.log('PDF saved successfully')
+      const filename = selectedReport.certificateNo || selectedReport.tcNumber || 'certificate'
+      pdf.save(`${filename}.pdf`)
     } catch (err) {
-      console.error('PDF export failed:', err)
-      window.print()
+      console.error('Error generating PDF:', err)
+      alert('Failed to generate PDF')
     }
   }
 
-  function handlePrint() {
+  function printReport() {
     window.print()
   }
 
+  const certificateData = selectedReport ? {
+    ...selectedReport,
+    customer_name: selectedReport.customer?.name,
+    customer_address: selectedReport.customer?.address,
+    customer_contact: selectedReport.customer?.phone,
+  } : null
+
   return (
-    <div className="space-y-6">
-      {/* Toolbar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <SancLogo size={52} />
-          <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Certificates</h1>
-            <p className="text-sm text-ink-faint">Generate &amp; export calibration and test certificates</p>
+    <div className="grid min-h-screen gap-6 lg:grid-cols-3">
+      {/* Sidebar - Search */}
+      <div className="lg:col-span-1">
+        <div className="sticky top-0 rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Search Reports</h2>
+
+          {/* Tabs */}
+          <div className="mb-4 flex gap-2">
+            {TABS.map((t) => {
+              const Icon = t.icon
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setTab(t.id)
+                    setSelectedReport(null)
+                  }}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    tab === t.id
+                      ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
+                      : 'bg-slate-50 text-ink-faint hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon size={16} />
+                  <span className="hidden sm:inline">{t.label}</span>
+                </button>
+              )
+            })}
           </div>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={handlePrint}>
-            <Printer size={18} /> Print
-          </Button>
-          <Button onClick={exportPdf}>
-            <Download size={18} /> Export PDF
-          </Button>
-        </div>
-      </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-2">
-        {TABS.map((t) => {
-          const Icon = t.icon
-          return (
-            <button
-              key={t.id}
-              onClick={() => {
-                setTab(t.id)
-                setSelectedReport(null)
-                setSearchQuery('')
-              }}
-              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
-                tab === t.id
-                  ? 'bg-brand-600 text-white shadow-ring'
-                  : 'bg-white text-ink-soft ring-1 ring-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              <Icon size={18} />
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Search Section */}
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="relative">
-          <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 ring-1 ring-slate-200 focus-within:ring-brand-600 focus-within:ring-2">
-            <Search size={18} className="text-ink-faint" />
+          {/* Search */}
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+              <Search size={16} className="text-ink-faint" />
+            </div>
             <input
               type="text"
-              placeholder={`Search by certificate number, customer name, or ${tab === 'calibration' ? 'instrument' : 'item'}...`}
+              placeholder="Certificate no, TC no, customer..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
                 setShowSearchResults(true)
               }}
-              onFocus={() => setShowSearchResults(true)}
-              className="flex-1 bg-transparent outline-none text-ink placeholder-ink-faint"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2.5 text-sm outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('')
-                  setShowSearchResults(false)
-                }}
-                className="text-ink-faint hover:text-ink"
-              >
-                <X size={18} />
-              </button>
-            )}
           </div>
 
-          {/* Search Results Dropdown */}
-          {showSearchResults && searchQuery && filteredReports.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg ring-1 ring-slate-200 z-10 max-h-80 overflow-y-auto">
-              {filteredReports.map((report) => (
-                <button
-                  key={report.id}
-                  onClick={() => handleSelectReport(report)}
-                  className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors"
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="font-semibold text-ink">
-                      {report.certificate_no || report.tc_number}
-                    </div>
-                    <div className="text-sm text-ink-faint">{report.customer_name}</div>
-                    {report.instrument_name && (
-                      <div className="text-xs text-ink-faint">{report.instrument_name}</div>
-                    )}
-                    {report.item_name && (
-                      <div className="text-xs text-ink-faint">{report.item_name}</div>
-                    )}
-                  </div>
-                </button>
-              ))}
+          {/* Search Results */}
+          {showSearchResults && searchQuery && (
+            <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+              {loading ? (
+                <div className="py-2 text-center text-sm text-ink-faint">Loading...</div>
+              ) : filteredReports.length === 0 ? (
+                <div className="py-2 text-center text-sm text-ink-faint">No reports found</div>
+              ) : (
+                filteredReports.map((report) => (
+                  <button
+                    key={report.id}
+                    onClick={() => handleSelectReport(report)}
+                    className="w-full rounded-lg bg-white p-2 text-left text-sm hover:bg-slate-100"
+                  >
+                    <p className="font-medium text-ink">{report.certificateNo || report.tcNumber}</p>
+                    <p className="text-xs text-ink-faint">{report.customer?.name}</p>
+                  </button>
+                ))
+              )}
             </div>
           )}
 
-          {showSearchResults && searchQuery && filteredReports.length === 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-lg shadow-lg ring-1 ring-slate-200 z-10 p-4 text-center text-ink-faint">
-              No reports found matching your search.
+          {/* Recent Reports */}
+          {!showSearchResults && (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-medium text-ink-faint">Recent</p>
+              {loading ? (
+                <div className="text-sm text-ink-faint">Loading...</div>
+              ) : reports.length === 0 ? (
+                <div className="text-sm text-ink-faint">No reports available</div>
+              ) : (
+                reports.slice(0, 5).map((report) => (
+                  <button
+                    key={report.id}
+                    onClick={() => handleSelectReport(report)}
+                    className="w-full rounded-lg bg-slate-50 p-2 text-left text-sm hover:bg-slate-100"
+                  >
+                    <p className="font-medium text-ink">{report.certificateNo || report.tcNumber}</p>
+                    <p className="text-xs text-ink-faint">{report.customer?.name}</p>
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
-
-        {/* Selected Report Info */}
-        {selectedReport && (
-          <div className="mt-4 p-3 bg-brand-50 rounded-lg border border-brand-200 flex items-center justify-between">
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-brand-900">
-                {selectedReport.certificate_no || selectedReport.tc_number}
-              </div>
-              <div className="text-xs text-brand-700 mt-1">{selectedReport.customer_name}</div>
-            </div>
-            <button
-              onClick={handleClearSelection}
-              className="text-brand-600 hover:text-brand-900 p-1"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* Certificate preview — scrollable container with grey background */}
-      <div className="overflow-x-auto rounded-2xl bg-slate-200/60 p-4">
-        <div ref={printRef}>
-          {tab === 'calibration' ? (
-            <CalibrationCertificate {...calibrationCertificateData} />
-          ) : (
-            <TestConformanceCertificate {...testCertificateData} />
-          )}
-        </div>
+      {/* Main Content - Certificate Display */}
+      <div className="lg:col-span-2">
+        {selectedReport ? (
+          <div className="rounded-2xl bg-white shadow-card ring-1 ring-slate-100">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-ink">
+                  {selectedReport.certificateNo || selectedReport.tcNumber}
+                </h2>
+                <p className="text-sm text-ink-faint">{selectedReport.customer?.name}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={printReport} variant="secondary" size="sm">
+                  <Printer size={16} /> Print
+                </Button>
+                <Button onClick={exportPdf} variant="secondary" size="sm">
+                  <Download size={16} /> PDF
+                </Button>
+                <button
+                  onClick={handleClearSelection}
+                  className="rounded-lg p-2 hover:bg-slate-100"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Certificate */}
+            <div className="overflow-auto p-6" ref={printRef}>
+              {tab === 'calibration' && certificateData ? (
+                <CalibrationCertificate data={certificateData} />
+              ) : tab === 'test' && certificateData ? (
+                <TestConformanceCertificate data={certificateData} />
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center rounded-2xl bg-white p-12 shadow-card ring-1 ring-slate-100">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <FileText size={32} className="text-ink-faint" />
+              </div>
+              <h3 className="mb-2 font-display text-lg font-semibold text-ink">No Report Selected</h3>
+              <p className="text-sm text-ink-faint">Search and select a report to view</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
