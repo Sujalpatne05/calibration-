@@ -11,7 +11,8 @@ export const authenticate = (req, res, next) => {
       return res.status(401).json({ error: 'No token provided' })
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    const secret = process.env.JWT_SECRET || 'sanc-calibration-2026-dev-key-12345';
+    const decoded = jwt.verify(token, secret)
     req.user = decoded
     next()
   } catch (error) {
@@ -21,9 +22,10 @@ export const authenticate = (req, res, next) => {
 }
 
 export const generateToken = (userId, username) => {
+  const secret = process.env.JWT_SECRET || 'sanc-calibration-2026-dev-key-12345';
   return jwt.sign(
     { userId, username },
-    process.env.JWT_SECRET,
+    secret,
     { expiresIn: process.env.JWT_EXPIRE || '7d' }
   );
 };
