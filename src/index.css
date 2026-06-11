@@ -285,6 +285,20 @@ input[type='date']::-webkit-calendar-picker-indicator {
   .cc-sign-grid { grid-template-columns: 1fr; }
 }
 
+.pdf-export-mode .report-print-area {
+  overflow: visible !important;
+}
+
+.pdf-export-mode .cc-page {
+  width: 210mm !important;
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
+  margin: 0 !important;
+  padding: 8.5mm 8mm 22mm 8mm !important;
+  box-shadow: none !important;
+}
+
 /* ===========================================================
    TEST & CONFORMANCE CERTIFICATE (tc- prefix)
    Print-ready A4 portrait • Self-contained CSS
@@ -413,4 +427,13 @@ input[type='date']::-webkit-calendar-picker-indicator {
   .tc-date { grid-column: 1 / -1; }
   .tc-specs { grid-template-columns: 130px 12px 1fr; }
   .tc-watermark img { width: 110px; height: 110px; }
+}
+
+.pdf-export-mode .tc-page {
+  width: 210mm !important;
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
+  margin: 0 !important;
+  box-shadow: none !important;
 }

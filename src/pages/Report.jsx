@@ -73,6 +73,12 @@ export default function Report() {
     const element = wrapper.firstElementChild || wrapper
 
     try {
+      document.body.classList.add('pdf-export-mode')
+      wrapper.scrollLeft = 0
+      wrapper.scrollTop = 0
+
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
@@ -84,10 +90,10 @@ export default function Report() {
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
-        windowWidth: Math.max(element.offsetWidth, 1200),
-        windowHeight: element.offsetHeight,
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: Math.max(element.scrollWidth, 1200),
+        windowHeight: element.scrollHeight,
       })
 
       const imgData = canvas.toDataURL('image/png')
@@ -104,6 +110,8 @@ export default function Report() {
     } catch (err) {
       console.error('Error generating PDF:', err)
       alert('Failed to generate PDF')
+    } finally {
+      document.body.classList.remove('pdf-export-mode')
     }
   }
 
