@@ -84,13 +84,11 @@ const T = ({
 
         <div className="tc-cell tc-sign">
           For SHRIRANG AUTOMATION AND CONTROLS
-          <div className="tc-stamp">
-            SHRIRANG
-            <br />
-            AUTOMATION
-            <br />
-            &amp; CONTROLS
-          </div>
+          <img
+            className="tc-stamp-img"
+            src="/sanc-stamp-sign.png"
+            alt="SANC stamp"
+          />
           QUALITY CONTROL
         </div>
       </div>

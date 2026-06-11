@@ -71,29 +71,37 @@ export default function Report() {
     }
 
     const element = wrapper.firstElementChild || wrapper
+    let exportHost = null
 
     try {
       document.body.classList.add('pdf-export-mode')
       wrapper.scrollLeft = 0
       wrapper.scrollTop = 0
 
+      exportHost = document.createElement('div')
+      exportHost.className = 'pdf-export-host'
+      const exportElement = element.cloneNode(true)
+      exportHost.appendChild(exportElement)
+      document.body.appendChild(exportHost)
+
       await new Promise((resolve) => requestAnimationFrame(resolve))
+      await document.fonts?.ready
 
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
         import('html2canvas'),
         import('jspdf'),
       ])
 
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(exportElement, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
         scrollX: 0,
         scrollY: 0,
-        width: element.scrollWidth,
-        height: element.scrollHeight,
-        windowWidth: Math.max(element.scrollWidth, 1200),
-        windowHeight: element.scrollHeight,
+        width: exportElement.scrollWidth,
+        height: exportElement.scrollHeight,
+        windowWidth: Math.max(exportElement.scrollWidth, 1200),
+        windowHeight: exportElement.scrollHeight,
       })
 
       const imgData = canvas.toDataURL('image/png')
@@ -111,12 +119,24 @@ export default function Report() {
       console.error('Error generating PDF:', err)
       alert('Failed to generate PDF')
     } finally {
+      exportHost?.remove()
       document.body.classList.remove('pdf-export-mode')
     }
   }
 
   function printReport() {
-    window.print()
+    document.body.classList.add('pdf-export-mode')
+
+    const cleanup = () => {
+      document.body.classList.remove('pdf-export-mode')
+      window.removeEventListener('afterprint', cleanup)
+    }
+
+    window.addEventListener('afterprint', cleanup)
+    requestAnimationFrame(() => {
+      window.print()
+      setTimeout(cleanup, 1000)
+    })
   }
 
   const certificateData = selectedReport ? {

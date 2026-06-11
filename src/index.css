@@ -274,19 +274,50 @@ input[type='date']::-webkit-calendar-picker-indicator {
     background: #fff !important;
   }
 
-  .cc-page { margin: 0; box-shadow: none; page-break-after: always; width: 210mm; height: 297mm; min-height: 297mm; max-height: 297mm; }
+  .cc-page {
+    margin: 0;
+    box-shadow: none;
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    page-break-after: auto;
+    break-after: auto;
+  }
   .cc-section, .cc-sign-grid, .cc-readings, .cc-customer-card, .cc-info-grid, .cc-tbl { page-break-inside: avoid; break-inside: avoid; }
 }
 
 @media screen and (max-width: 640px) {
-  .cc-page { width: 100%; padding: 8mm 8mm 38mm; }
-  .cc-info-grid, .cc-info-grid.cc-cols-3 { grid-template-columns: 1fr 1fr; }
-  .cc-customer-card { grid-template-columns: 1fr; }
-  .cc-sign-grid { grid-template-columns: 1fr; }
+  .report-print-area {
+    padding: 12px !important;
+    overflow: auto !important;
+  }
+
+  .report-print-area .cc-page {
+    width: 210mm;
+    min-width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    margin: 0;
+    padding: 8.5mm 8mm 22mm 8mm;
+  }
 }
 
 .pdf-export-mode .report-print-area {
   overflow: visible !important;
+}
+
+.pdf-export-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 210mm;
+  min-height: 297mm;
+  overflow: visible;
+  background: #fff;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .pdf-export-mode .cc-page {
@@ -391,11 +422,12 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .tc-legal { font-size: 11.5px; line-height: 1.35; }
 
 .tc-sign { font-weight: 700; }
-.tc-stamp {
-  width: 74px; height: 74px; margin: 6px 0 4px;
-  border-radius: 50%; border: 2px solid var(--tc-navy); color: var(--tc-navy);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 7.5px; font-weight: 700; text-align: center; line-height: 1.15; opacity: .85;
+.tc-stamp-img {
+  display: block;
+  width: 156px;
+  max-height: 112px;
+  object-fit: contain;
+  margin: 6px 0 4px;
 }
 
 .tc-footer {
@@ -413,20 +445,27 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 @media print {
   @page { size: A4 portrait; margin: 0; }
-  .tc-page { box-shadow: none; width: 210mm; height: 297mm; margin: 0; }
+  .tc-page {
+    box-shadow: none;
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    margin: 0;
+    page-break-after: auto;
+    break-after: auto;
+  }
 }
 
 @media screen and (max-width: 640px) {
-  .tc-company { font-size: 18px; }
-  .tc-cert-title { font-size: 30px; }
-  .tc-letterhead, .tc-content { padding-left: 18px; padding-right: 18px; }
-  .tc-footer { padding-left: 18px; padding-right: 18px; }
-  .tc-footer-inner { flex-direction: column; }
-  .tc-contact { text-align: left; }
-  .tc-meta, .tc-meta-tc { grid-template-columns: 140px 1fr; }
-  .tc-date { grid-column: 1 / -1; }
-  .tc-specs { grid-template-columns: 130px 12px 1fr; }
-  .tc-watermark img { width: 110px; height: 110px; }
+  .report-print-area .tc-page {
+    width: 210mm;
+    min-width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    margin: 0;
+  }
 }
 
 .pdf-export-mode .tc-page {
