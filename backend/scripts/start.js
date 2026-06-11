@@ -8,12 +8,36 @@ const normalizeDatabaseUrl = () => {
     process.exit(1)
   }
 
-  const normalizedUrl = rawUrl.trim().replace(/^["']|["']$/g, '')
+  let normalizedUrl = rawUrl.trim()
+
+  normalizedUrl = normalizedUrl
+    .replace(/^export\s+/i, '')
+    .replace(/^DATABASE_URL\s*=\s*/i, '')
+    .replace(/;$/, '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .trim()
+
+  if (!/^postgres(ql)?:\/\//.test(normalizedUrl) && /postgres(ql)?%3A%2F%2F/i.test(normalizedUrl)) {
+    try {
+      normalizedUrl = decodeURIComponent(normalizedUrl)
+    } catch {
+      // Keep the original value so the validation message below is still shown.
+    }
+  }
+
   process.env.DATABASE_URL = normalizedUrl
 
   if (!/^postgres(ql)?:\/\//.test(normalizedUrl)) {
+    const detectedShape = normalizedUrl.includes('=')
+      ? 'contains "="'
+      : normalizedUrl.includes('://')
+        ? `starts with "${normalizedUrl.split('://')[0]}://"`
+        : `starts with "${normalizedUrl.slice(0, 12) || 'empty'}"`
+
     console.error(
-      'DATABASE_URL must start with postgresql:// or postgres://. In Render, paste the database URL without quotes.'
+      `DATABASE_URL must start with postgresql:// or postgres://. Current value ${detectedShape}. ` +
+        'In Render, set key DATABASE_URL and paste only the database URL as the value.'
     )
     process.exit(1)
   }
