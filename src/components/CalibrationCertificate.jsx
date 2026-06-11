@@ -6,41 +6,88 @@
  */
 import SancLogo from './SancLogo'
 
-const C = ({
-  certificate_no = '',
-  ulr_no = '',
-  calibration_date = '',
-  date_of_issue = '',
-  due_date = '',
-  status = 'Calibrated & Passed',
-  customer_name = '',
-  customer_address = '',
-  customer_contact = '',
-  customer_gstin = '',
-  calibration_location = '',
-  calibration_address = '',
-  procedure_ref = '',
-  srf_no = '',
-  instrument_name = '',
-  instrument_make = '',
-  instrument_model = '',
-  instrument_serial = '',
-  instrument_range = '',
-  instrument_resolution = '',
-  instrument_accuracy = '',
-  instrument_tag = '',
-  condition_on_receipt = '',
-  standards = [],
-  env_temperature = '',
-  env_humidity = '',
-  env_pressure = '',
-  readings = [],
-  custom_remark = '',
-  calibrated_by_name = '',
-  calibrated_by_designation = '',
-  approved_by_name = '',
-  approved_by_designation = '',
-}) => (
+const parseJsonList = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'string') return []
+
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const formatDate = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string' && !value.includes('T')) return value
+
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB')
+}
+
+const standardText = (standard, ...keys) => {
+  if (!standard) return ''
+  if (typeof standard !== 'object') return String(standard)
+
+  for (const key of keys) {
+    if (standard[key]) return standard[key]
+  }
+
+  return ''
+}
+
+const C = (props) => {
+  const source = props.data ?? props
+  const parsedStandards = parseJsonList(source.standards ?? source.refStandards)
+  const standardsList = parsedStandards.length
+    ? parsedStandards
+    : source.refStandards
+      ? [{ cert: source.refStandards }]
+      : []
+  const readingsList = parseJsonList(source.readings)
+  const normalized = {
+    ...source,
+    standards: standardsList,
+    readings: readingsList,
+  }
+  const {
+    certificate_no = source.certificateNo ?? '',
+    ulr_no = source.ulrNo ?? '',
+    calibration_date = formatDate(source.calibrationDate),
+    date_of_issue = formatDate(source.issueDate),
+    due_date = formatDate(source.dueDate),
+    status = source.status ?? 'Calibrated & Passed',
+    customer_name = source.customer?.name ?? '',
+    customer_address = source.customer?.address ?? '',
+    customer_contact = source.customer?.phone ?? '',
+    customer_gstin = source.customer?.gstin ?? '',
+    calibration_location = source.location ?? '',
+    calibration_address = source.location ?? '',
+    procedure_ref = source.procedureRef ?? '',
+    srf_no = source.srfNo ?? '',
+    instrument_name = source.instrumentName ?? '',
+    instrument_make = source.instrumentMake ?? '',
+    instrument_model = source.instrumentModel ?? '',
+    instrument_serial = source.instrumentSerial ?? '',
+    instrument_range = source.instrumentRange ?? '',
+    instrument_resolution = source.instrumentResolution ?? '',
+    instrument_accuracy = source.instrumentAccuracy ?? '',
+    instrument_tag = source.instrumentTag ?? '',
+    condition_on_receipt = source.conditionOnReceipt ?? '',
+    standards = standardsList,
+    env_temperature = source.envTemperature ?? '',
+    env_humidity = source.envHumidity ?? '',
+    env_pressure = source.envPressure ?? '',
+    readings = readingsList,
+    custom_remark = source.customRemark ?? '',
+    calibrated_by_name = source.calibratedByName ?? '',
+    calibrated_by_designation = source.calibratedByDesignation ?? '',
+    approved_by_name = source.approvedByName ?? '',
+    approved_by_designation = source.approvedByDesignation ?? '',
+  } = normalized
+
+  return (
   <article
     className="cc-page"
     role="document"
@@ -107,7 +154,7 @@ const C = ({
         </div>
         <div className="cc-info-cell">
           <span className="cc-label">Calibration Status</span>
-          <span className="cc-value">
+          <span className="cc-value cc-status-value">
             <span className="cc-pill cc-pill-pass">{status}</span>
           </span>
         </div>
@@ -213,12 +260,14 @@ const C = ({
           {standards.map((s, i) => (
             <tr key={i}>
               <td className="cc-center">{i + 1}</td>
-              <td>{s.name}</td>
-              <td>{s.make}</td>
-              <td>{s.serial}</td>
-              <td>{s.range}</td>
-              <td>{s.cert}</td>
-              <td className="cc-center">{s.valid}</td>
+              <td>{standardText(s, 'name', 'instrument')}</td>
+              <td>{standardText(s, 'make', 'model')}</td>
+              <td>{standardText(s, 'serial', 'serialNo', 'id')}</td>
+              <td>{standardText(s, 'range')}</td>
+              <td>{standardText(s, 'cert', 'certificateNo', 'reportNo')}</td>
+              <td className="cc-center">
+                {standardText(s, 'valid', 'certExpiry', 'validUpto')}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -335,6 +384,13 @@ const C = ({
         <div className="cc-sign-name">{calibrated_by_name}</div>
         <div className="cc-sign-desig">{calibrated_by_designation}</div>
       </div>
+      <div className="cc-stamp-cell" aria-label="SANC stamp">
+        <img
+          className="cc-stamp-img"
+          src="/sanc-stamp-sign.png"
+          alt="SANC stamp"
+        />
+      </div>
       <div className="cc-sign-cell">
         <div className="cc-role">Approved By</div>
         <div className="cc-sign-space" />
@@ -342,17 +398,6 @@ const C = ({
         <div className="cc-sign-desig">{approved_by_designation}</div>
       </div>
     </section>
-
-    {/* Seal */}
-    <div className="cc-seal" aria-hidden="true">
-      <span>
-        SANC
-        <br />
-        Authorised
-        <br />
-        Signatory
-      </span>
-    </div>
 
     {/* Footer */}
     <div className="cc-footer-wrap" role="contentinfo">
@@ -406,6 +451,7 @@ const C = ({
       </div>
     </div>
   </article>
-)
+  )
+}
 
 export default C

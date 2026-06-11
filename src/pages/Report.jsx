@@ -82,6 +82,12 @@ export default function Report() {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        windowWidth: Math.max(element.offsetWidth, 1200),
+        windowHeight: element.offsetHeight,
       })
 
       const imgData = canvas.toDataURL('image/png')
@@ -91,22 +97,7 @@ export default function Report() {
         format: 'a4',
       })
 
-      const imgWidth = 210
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-      const pageHeight = 297
-
-      let heightLeft = imgHeight
-      let position = 0
-
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight
-        pdf.addPage()
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-        heightLeft -= pageHeight
-      }
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297)
 
       const filename = selectedReport.certificateNo || selectedReport.tcNumber || 'certificate'
       pdf.save(`${filename}.pdf`)
@@ -125,12 +116,18 @@ export default function Report() {
     customer_name: selectedReport.customer?.name,
     customer_address: selectedReport.customer?.address,
     customer_contact: selectedReport.customer?.phone,
+    po_number: selectedReport.poNumber,
+    tc_number: selectedReport.tcNumber,
+    tc_date: selectedReport.tcDate ? new Date(selectedReport.tcDate).toLocaleDateString('en-GB') : '',
+    items: selectedReport.items ? JSON.parse(selectedReport.items) : [],
+    note: selectedReport.notes,
+    legal: selectedReport.legalDisclaimer,
   } : null
 
   return (
-    <div className="grid min-h-screen gap-6 lg:grid-cols-3">
+    <div className="report-page grid min-h-screen gap-6 lg:grid-cols-3">
       {/* Sidebar - Search */}
-      <div className="lg:col-span-1">
+      <div className="report-search-panel lg:col-span-1">
         <div className="sticky top-0 rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
           <h2 className="mb-4 font-display text-lg font-semibold text-ink">Search Reports</h2>
 
@@ -223,11 +220,11 @@ export default function Report() {
       </div>
 
       {/* Main Content - Certificate Display */}
-      <div className="lg:col-span-2">
+      <div className="report-main-panel lg:col-span-2">
         {selectedReport ? (
-          <div className="rounded-2xl bg-white shadow-card ring-1 ring-slate-100">
+          <div className="report-card rounded-2xl bg-white shadow-card ring-1 ring-slate-100">
             {/* Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div className="report-toolbar flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <h2 className="font-display text-lg font-semibold text-ink">
                   {selectedReport.certificateNo || selectedReport.tcNumber}
@@ -251,7 +248,7 @@ export default function Report() {
             </div>
 
             {/* Certificate */}
-            <div className="overflow-auto p-6" ref={printRef}>
+            <div className="report-print-area overflow-auto p-6" ref={printRef}>
               {tab === 'calibration' && certificateData ? (
                 <CalibrationCertificate data={certificateData} />
               ) : tab === 'test' && certificateData ? (

@@ -36,15 +36,19 @@ async function fullImport() {
     console.log(`Step 2: Creating ${uniqueCustomers.size} customers...`);
     for (const customerName of uniqueCustomers) {
       try {
-        const customer = await prisma.customer.upsert({
-          where: { name: customerName },
-          update: {},
-          create: {
-            name: customerName,
-            phone: '',
-            address: ''
-          }
+        let customer = await prisma.customer.findFirst({
+          where: { name: customerName }
         });
+
+        if (!customer) {
+          customer = await prisma.customer.create({
+            data: {
+              name: customerName,
+              phone: '',
+              address: ''
+            }
+          });
+        }
         customerMap[customerName] = customer.id;
         console.log(`  ✓ ${customerName} (ID: ${customer.id})`);
       } catch (error) {
