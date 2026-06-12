@@ -11,6 +11,20 @@ const TABS = [
   { id: 'test', label: 'Test & Conformance', icon: FileText },
 ]
 
+function buildCertificatePdfFilename(report, type) {
+  const prefix = type === 'test' ? 'SANC-TC' : 'SANC-CC'
+  const certificateNumber = type === 'test'
+    ? report?.tcNumber || report?.certificateNo || 'certificate'
+    : report?.certificateNo || report?.tcNumber || 'certificate'
+  const cleanCertificateNumber = String(certificateNumber)
+    .replace(new RegExp(`^${prefix}-`, 'i'), '')
+    .replace(/[<>:"/\\|?*]+/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/^-+|-+$/g, '')
+
+  return `${prefix}-${cleanCertificateNumber || 'certificate'}`
+}
+
 export default function Report() {
   const [tab, setTab] = useState('calibration')
   const [searchQuery, setSearchQuery] = useState('')
@@ -113,7 +127,7 @@ export default function Report() {
 
       pdf.addImage(imgData, 'PNG', 0, 0, 210, 297)
 
-      const filename = selectedReport.certificateNo || selectedReport.tcNumber || 'certificate'
+      const filename = buildCertificatePdfFilename(selectedReport, tab)
       pdf.save(`${filename}.pdf`)
     } catch (err) {
       console.error('Error generating PDF:', err)
