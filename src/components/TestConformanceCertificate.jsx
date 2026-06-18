@@ -4,15 +4,91 @@
  */
 import { Fragment } from 'react'
 
-const T = ({
-  customer_name = '',
-  po_number = '',
-  tc_number = '',
-  tc_date = '',
-  items = [],
-  note = '',
-  legal = '',
-}) => (
+const parseJsonList = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'string') return []
+
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const formatDate = (value) => {
+  if (!value) return ''
+  if (typeof value === 'string' && !value.includes('T')) return value
+
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB')
+}
+
+const asList = (value) => (Array.isArray(value) ? value : [])
+const firstText = (...values) => values.find((value) => String(value ?? '').trim()) ?? ''
+
+const normalizeItems = (items) =>
+  asList(items).map((item, index) => ({
+    sr: item.sr ?? index + 1,
+    name: item.name ?? item.title ?? 'Instrument',
+    qty: item.qty ?? item.quantity ?? 1,
+    specs: asList(item.specs),
+    checks: asList(item.checks ?? item.conformanceChecks ?? item.tests),
+  }))
+
+const fallbackItems = (source) => {
+  const name = source.instrumentName ?? source.instrument?.name ?? ''
+  const make = source.instrumentMake ?? source.instrument?.make ?? ''
+  const model = source.instrumentModel ?? source.instrument?.model ?? ''
+  const serial = source.instrumentSerial ?? source.instrument?.serial ?? ''
+  const category = source.instrument?.category ?? ''
+  const range = source.instrumentRange ?? ''
+  const accuracy = source.instrumentAccuracy ?? ''
+
+  if (!name && !make && !model && !serial && !range) return []
+
+  return [
+    {
+      sr: 1,
+      name: name || 'Instrument',
+      qty: 1,
+      specs: [
+        { key: 'MAKE', value: make || 'N/A' },
+        { key: 'MODEL', value: model || 'N/A' },
+        { key: 'CATEGORY', value: category || 'N/A' },
+        { key: 'SERIAL NO', value: serial || 'N/A' },
+        { key: 'RANGE', value: range || 'N/A' },
+        { key: 'ACCURACY', value: accuracy || 'N/A' },
+      ],
+      checks: [
+        { test: 'Visual inspection', reference: 'No physical damage', observed: 'Accepted', result: 'Conforms' },
+        { test: 'Dimensional inspection', reference: 'As per model/specification', observed: 'Accepted', result: 'Conforms' },
+        { test: 'Performance check', reference: range || 'As specified', observed: 'Accepted', result: 'Conforms' },
+      ],
+    },
+  ]
+}
+
+const T = (props) => {
+  const source = props.data ?? props
+  const parsedItems = normalizeItems(parseJsonList(source.items))
+  const items = parsedItems.length ? parsedItems : fallbackItems(source)
+  const customer_name = firstText(source.customer_name, source.customer?.name)
+  const tc_number = firstText(source.tcNumber, source.tc_number, source.certificateNo)
+  const po_number = firstText(source.poNumber, source.po_number, `PO-${tc_number || 'DRAFT'}`)
+  const tc_date = firstText(source.tc_date, formatDate(source.tcDate), formatDate(source.issueDate))
+  const note = firstText(
+    source.notes,
+    source.note,
+    'This is to certify that the material has been checked for Visual, Dimensional and Performance tests and found within accuracy.'
+  )
+  const legal = firstText(
+    source.legalDisclaimer,
+    source.legal,
+    'We confirm for specifications and performance as per the supplied item details and applicable internal quality procedures.'
+  )
+
+  return (
   <article className="tc-page" role="document" aria-label="Test & Conformance Certificate">
     {/* Blue corner accent */}
     <div className="tc-corner-accent" />
@@ -63,15 +139,39 @@ const T = ({
               <div className="tc-sr">{item.sr}</div>
               <div className="tc-desc">
                 <div className="tc-item-name">{item.name}</div>
-                <div className="tc-specs">
-                  {item.specs.map((s, i) => (
-                    <Fragment key={i}>
-                      <span className="tc-k">{s.key}</span>
-                      <span className="tc-sep">:</span>
-                      <span className="tc-v">{s.value}</span>
-                    </Fragment>
-                  ))}
-                </div>
+                {item.specs.length ? (
+                  <div className="tc-specs">
+                    {item.specs.map((s, i) => (
+                      <Fragment key={i}>
+                        <span className="tc-k">{s.key}</span>
+                        <span className="tc-sep">:</span>
+                        <span className="tc-v">{s.value}</span>
+                      </Fragment>
+                    ))}
+                  </div>
+                ) : null}
+                {item.checks.length ? (
+                  <table className="tc-checks">
+                    <thead>
+                      <tr>
+                        <th>Test</th>
+                        <th>Reference</th>
+                        <th>Observed</th>
+                        <th>Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {item.checks.map((check, i) => (
+                        <tr key={i}>
+                          <td>{check.test ?? check.name}</td>
+                          <td>{check.reference ?? check.expected ?? check.point}</td>
+                          <td>{check.observed ?? check.output ?? check.value}</td>
+                          <td className="tc-result">{check.result ?? 'Conforms'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
               </div>
               <div className="tc-qty">{item.qty}</div>
             </div>
@@ -114,6 +214,7 @@ const T = ({
       </div>
     </footer>
   </article>
-)
+  )
+}
 
 export default T

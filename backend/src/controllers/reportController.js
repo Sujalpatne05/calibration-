@@ -4,9 +4,49 @@ import logger from '../config/logger.js';
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
 
+const validateJsonField = (data, fieldName, expectedRoot) => {
+  if (data[fieldName] === undefined || data[fieldName] === null || data[fieldName] === '') return null;
+
+  try {
+    const parsed = typeof data[fieldName] === 'string' ? JSON.parse(data[fieldName]) : data[fieldName];
+
+    if (expectedRoot === 'readings') {
+      const rows = Array.isArray(parsed) ? parsed : parsed.rows;
+      const sections = parsed.sections;
+
+      if (!Array.isArray(rows) && !Array.isArray(sections)) {
+        return `${fieldName} must contain rows or sections`;
+      }
+    }
+
+    if (expectedRoot === 'items' && !Array.isArray(parsed)) {
+      return `${fieldName} must be an array`;
+    }
+  } catch {
+    return `${fieldName} must be valid JSON`;
+  }
+
+  return null;
+};
+
+const sanitizeReportData = (data) => {
+  const next = { ...data };
+  const errors = [
+    validateJsonField(next, 'readings', 'readings'),
+    validateJsonField(next, 'items', 'items'),
+    validateJsonField(next, 'refStandards', 'items')
+  ].filter(Boolean);
+
+  return { data: next, errors };
+};
+
 export const getAllReports = async (req, res) => {
   try {
     const { type, search } = req.query;
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 50;
 
     const where = {};
 
@@ -26,7 +66,8 @@ export const getAllReports = async (req, res) => {
     const reports = await prisma.report.findMany({
       where,
       include: { customer: true, instrument: true },
-      orderBy: { issueDate: 'desc' }
+      orderBy: { issueDate: 'desc' },
+      take: limit
     });
 
     res.json(reports);
@@ -58,8 +99,11 @@ export const getReportById = async (req, res) => {
 
 export const createReport = async (req, res) => {
   try {
+    const { data, errors } = sanitizeReportData(req.validated ?? req.body);
+    if (errors.length) return res.status(400).json({ errors });
+
     const report = await prisma.report.create({
-      data: req.validated,
+      data,
       include: { customer: true, instrument: true }
     });
 
@@ -74,10 +118,12 @@ export const createReport = async (req, res) => {
 export const updateReport = async (req, res) => {
   try {
     const { id } = req.params;
+    const { data, errors } = sanitizeReportData(req.validated ?? req.body);
+    if (errors.length) return res.status(400).json({ errors });
 
     const report = await prisma.report.update({
       where: { id: parseInt(id) },
-      data: req.validated,
+      data,
       include: { customer: true, instrument: true }
     });
 

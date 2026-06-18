@@ -27,16 +27,9 @@ export default function Login() {
       setError('')
       const response = await authAPI.login(username.trim(), password.trim())
       
-      // Store token in localStorage
       if (response.token) {
-        // Clear any old auth data first
-        localStorage.removeItem('sanc_auth')
-        
-        localStorage.setItem('token', response.token)
-        localStorage.setItem('user', JSON.stringify(response.user))
-        
-        // Update auth context
-        setAuth(response.user.username)
+        // Update auth context and persistent token together.
+        setAuth(response.user, response.token)
         
         console.log('Login successful, token stored:', response.token.substring(0, 50) + '...')
         

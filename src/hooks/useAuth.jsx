@@ -1,17 +1,13 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useCallback, useContext, useState } from 'react'
 
-/**
- * Mock authentication context.
- * No real backend — any non-empty credentials sign the user in.
- * The session flag is kept in localStorage so a refresh stays logged in.
- */
 const AuthContext = createContext(null)
-
 const STORAGE_KEY = 'sanc_auth'
 
 function readStored() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null
+    const session = JSON.parse(localStorage.getItem(STORAGE_KEY)) || null
+    const token = localStorage.getItem('token')
+    return session && token ? session : null
   } catch {
     return null
   }
@@ -20,13 +16,22 @@ function readStored() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStored)
 
-  const login = useCallback((username) => {
-    const session = { username: username || 'sanc', loggedAt: Date.now() }
+  const login = useCallback((profile, token) => {
+    const session =
+      typeof profile === 'object' && profile
+        ? { ...profile, loggedAt: Date.now() }
+        : { username: profile || 'sanc', loggedAt: Date.now() }
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
+      if (token) localStorage.setItem('token', token)
+      if (typeof profile === 'object' && profile) {
+        localStorage.setItem('user', JSON.stringify(profile))
+      }
     } catch {
-      /* storage unavailable — fall back to in-memory only */
+      // Fall back to in-memory auth if storage is unavailable.
     }
+
     setUser(session)
     return true
   }, [])
@@ -34,8 +39,10 @@ export function AuthProvider({ children }) {
   const logout = useCallback(() => {
     try {
       localStorage.removeItem(STORAGE_KEY)
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
     } catch {
-      /* ignore */
+      // Ignore storage failures during logout.
     }
     setUser(null)
   }, [])

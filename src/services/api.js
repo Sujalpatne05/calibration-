@@ -45,6 +45,14 @@ const apiCall = async (endpoint, options = {}) => {
   })
 
   if (!response.ok) {
+    if (response.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('sanc_auth')
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
+    }
     console.error(`[API] Error [${response.status}]: ${endpoint}`, {
       token: token ? `present (${token.length} chars)` : 'missing',
       status: response.statusText,
@@ -138,10 +146,11 @@ export const invoicesAPI = {
 // ===== REPORTS API =====
 export const reportsAPI = {
   // GET all reports with optional type filter and search
-  getAll: (type = '', search = '') => {
+  getAll: (type = '', search = '', limit = 50) => {
     const params = new URLSearchParams()
     if (type) params.append('type', type)
     if (search) params.append('search', search)
+    if (limit) params.append('limit', limit)
     const queryStr = params.toString()
     return apiCall(`/reports${queryStr ? '?' + queryStr : ''}`)
   },

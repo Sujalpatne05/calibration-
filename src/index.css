@@ -183,6 +183,8 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-readings thead tr:nth-child(2) th { padding-top: 3px; padding-bottom: 3px; line-height: 1.15; }
 .cc-readings thead small { display: block; margin-top: 1px; font-size: 4.8pt; line-height: 1.05; }
 .cc-group-head { background: var(--cc-blue) !important; color: #fff !important; border-bottom-color: var(--cc-blue); }
+.cc-reading-stack { display: flex; flex-direction: column; gap: 5px; }
+.cc-reading-title { margin-bottom: 2px; font-size: 6.2pt; font-weight: 700; color: var(--cc-blue); text-transform: uppercase; letter-spacing: 0.4px; }
 .cc-note-italic { font-size: 6pt; color: var(--cc-muted); margin-top: 2px; font-style: italic; line-height: 1.12; }
 
 /* Remarks */
@@ -418,6 +420,10 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .tc-specs { display: grid; grid-template-columns: 145px 12px 1fr; row-gap: 6px; align-items: start; }
 .tc-k { font-weight: 700; }
 .tc-sep { font-weight: 700; }
+.tc-checks { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10.5px; }
+.tc-checks th, .tc-checks td { border: 1px solid var(--tc-line); padding: 4px 6px; text-align: left; vertical-align: top; }
+.tc-checks th { background: var(--tc-row-bg); font-weight: 700; }
+.tc-result { font-weight: 700; }
 .tc-note { font-size: 12px; }
 .tc-legal { font-size: 11.5px; line-height: 1.35; }
 

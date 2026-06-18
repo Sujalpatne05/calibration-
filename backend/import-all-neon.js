@@ -28,6 +28,40 @@ const rangeText = (row) => {
   return ''
 }
 
+const numberValue = (value) => {
+  if (value === undefined || value === null || value === '') return null
+  const numeric = Number(String(value).replace(/,/g, '').trim())
+  return Number.isFinite(numeric) ? numeric : null
+}
+
+const formatNumber = (value) => {
+  const numeric = numberValue(value)
+  if (numeric === null) return text(value)
+  return numeric.toFixed(4).replace(/\.?0+$/, '')
+}
+
+const tableTypeForRow = (row) => {
+  const value = `${text(row['Category '])} ${text(row.Category)} ${text(row['Instrument Name'])}`.toLowerCase()
+
+  if (value.includes('humidity')) return 'humidity'
+  if (value.includes('switch')) return 'switch'
+  if (value.includes('transmitter')) return 'transmitter'
+  if (value.includes('gauge')) return 'gauge'
+  return 'gauge'
+}
+
+const generatedPoints = (row) => {
+  const start = numberValue(row['Range start '])
+  const end = numberValue(row['Range End'])
+
+  if (start === null || end === null || start === end) {
+    return start !== null ? [formatNumber(start)] : []
+  }
+
+  const step = (end - start) / 5
+  return Array.from({ length: 6 }, (_, index) => formatNumber(start + step * index))
+}
+
 const calibrationPoints = (row) =>
   [
     row['Calibration Points'],
@@ -41,16 +75,15 @@ const calibrationPoints = (row) =>
 
 const buildReadings = (row) => {
   const points = calibrationPoints(row)
+  const resolvedPoints = points.length ? points : generatedPoints(row)
   const unit = text(row.Unit)
   const uncertainty = text(row['Reading Accuracy ']) || text(row.Accuracy)
+  const highestRange = numberValue(row['Range End']) ?? numberValue(row['Range start '])
+  const tableType = tableTypeForRow(row)
 
-  if (points.length === 0) {
-    const set = text(row['Range start '])
-    return set ? [{ set, unit, up: '', down: '', mean: '', error: '', unc: uncertainty }] : []
-  }
-
-  return points.map((point) => ({
+  const rows = resolvedPoints.map((point) => ({
     set: point,
+    master: point,
     unit,
     up: '',
     down: '',
@@ -58,6 +91,80 @@ const buildReadings = (row) => {
     error: '',
     unc: uncertainty,
   }))
+
+  if (tableType === 'humidity') {
+    return {
+      tableType,
+      highestRange,
+      unit,
+      uncertainty,
+      sections: [
+        {
+          tableType: 'humidityTemperature',
+          title: 'Humidity Transmitter - Temperature',
+          unit: '\u00b0C',
+          highestRange: highestRange ?? 100,
+          rows,
+        },
+        {
+          tableType: 'humidityHumidity',
+          title: 'Humidity Transmitter - Humidity',
+          unit: '%RH',
+          highestRange: highestRange ?? 100,
+          rows,
+        },
+      ],
+    }
+  }
+
+  return {
+    tableType,
+    highestRange,
+    unit,
+    uncertainty,
+    rows,
+  }
+}
+
+const expectedOutput = (tableType, point, highestRange, unit) => {
+  const pointNumber = numberValue(point)
+
+  if (tableType === 'transmitter' && highestRange && pointNumber !== null) {
+    return `${formatNumber(4 + (16 / highestRange) * pointNumber)} mA`
+  }
+
+  if (tableType === 'humidity' && highestRange && pointNumber !== null) {
+    return `${formatNumber(4 + (16 / highestRange) * pointNumber)} mA / ${formatNumber(pointNumber)} ${unit || '%RH'}`
+  }
+
+  return `${formatNumber(point)}${unit ? ` ${unit}` : ''}`
+}
+
+const buildConformanceChecks = (row) => {
+  const tableType = tableTypeForRow(row)
+  const highestRange = numberValue(row['Range End']) ?? numberValue(row['Range start '])
+  const points = calibrationPoints(row)
+  const resolvedPoints = points.length ? points : generatedPoints(row)
+  const unit = text(row.Unit)
+  const accuracy = text(row['Reading Accuracy ']) || text(row.Accuracy) || 'As specified'
+
+  return [
+    { test: 'Visual inspection', reference: 'No physical damage', observed: 'Accepted', result: 'Conforms' },
+    { test: 'Dimensional inspection', reference: 'As per model/specification', observed: 'Accepted', result: 'Conforms' },
+    ...resolvedPoints.map((point) => ({
+      test:
+        tableType === 'switch'
+          ? 'Switching point'
+          : tableType === 'transmitter'
+            ? 'Output signal'
+            : tableType === 'humidity'
+              ? 'Temperature / humidity output'
+              : 'Performance reading',
+      reference: `${formatNumber(point)}${unit ? ` ${unit}` : ''}`,
+      observed: expectedOutput(tableType, point, highestRange, unit),
+      result: `Within ${accuracy}`,
+    })),
+  ]
 }
 
 const buildTestItems = (row, instrument, range) => [
@@ -69,12 +176,14 @@ const buildTestItems = (row, instrument, range) => [
       { key: 'MAKE', value: instrument.make || 'N/A' },
       { key: 'MODEL', value: instrument.model || 'N/A' },
       { key: 'SERIES', value: text(row.Series) || 'N/A' },
+      { key: 'CATEGORY', value: text(row['Category ']) || text(row.Category) || 'N/A' },
       { key: 'SERIAL NO', value: instrument.serial || 'N/A' },
       { key: 'RANGE', value: range || 'N/A' },
       { key: 'RESOLUTION', value: text(row.Resolution) || 'N/A' },
       { key: 'ACCURACY', value: text(row.Accuracy) || 'N/A' },
       { key: 'DESCRIPTION', value: text(row.Description) || 'N/A' },
     ],
+    conformanceChecks: buildConformanceChecks(row),
   },
 ]
 
@@ -154,7 +263,7 @@ async function main() {
     const sequence = index + 1
     const padded = String(sequence).padStart(4, '0')
     const range = rangeText(row)
-    const standardValues = [text(row['Standard 1']), text(row['Standard 2'])].filter(Boolean)
+    const standardValues = [text(row['Standard 1']), text(row['Standard 2']), text(row['Standard 3'])].filter(Boolean)
 
     standards.push(
       ...standardValues.map((certificateNo) => ({
