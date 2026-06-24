@@ -1,6 +1,16 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
-import { getAllReports, getReportById, createReport, updateReport, deleteReport } from '../controllers/reportController.js';
+import {
+  getAllReports,
+  getReportById,
+  getDummyCalibrationReport,
+  getDummyTestReport,
+  postDummyCalibrationReport,
+  postDummyTestReport,
+  createReport,
+  updateReport,
+  deleteReport
+} from '../controllers/reportController.js';
 
 const router = express.Router();
 
@@ -26,6 +36,11 @@ const router = express.Router();
  *         description: List of reports
  */
 router.get('/', authenticate, getAllReports);
+
+router.get('/dummy/calibration', authenticate, getDummyCalibrationReport);
+router.post('/dummy/calibration', authenticate, postDummyCalibrationReport);
+router.get('/dummy/test', authenticate, getDummyTestReport);
+router.post('/dummy/test', authenticate, postDummyTestReport);
 
 /**
  * @swagger

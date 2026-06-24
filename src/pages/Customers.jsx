@@ -114,9 +114,10 @@ export default function Customers() {
             key: 'address',
             header: 'Address',
             className: 'text-ink-soft text-xs max-w-sm',
+            render: (row) => row.address || '-',
           },
-          { key: 'email', header: 'Email', className: 'text-ink-soft' },
-          { key: 'phone', header: 'Phone' },
+          { key: 'email', header: 'Email', className: 'text-ink-soft', render: (row) => row.email || '-' },
+          { key: 'phone', header: 'Phone', render: (row) => row.phone || '-' },
           {
             key: 'actions',
             header: 'Actions',

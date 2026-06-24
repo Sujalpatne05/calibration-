@@ -158,6 +158,21 @@ export const reportsAPI = {
   // GET single report by ID
   getById: (id) => apiCall(`/reports/${id}`),
 
+  // GET dummy calibration report for format/calculation testing
+  getDummyCalibration: (caseName = 'gauge') =>
+    apiCall(`/reports/dummy/calibration?case=${encodeURIComponent(caseName)}`),
+
+  // POST custom dummy calibration payload for contract testing
+  postDummyCalibration: (data) =>
+    apiCall('/reports/dummy/calibration', { method: 'POST', body: JSON.stringify(data) }),
+
+  // GET dummy Test & Conformance report for format testing
+  getDummyTest: () => apiCall('/reports/dummy/test'),
+
+  // POST custom dummy Test & Conformance payload for contract testing
+  postDummyTest: (data) =>
+    apiCall('/reports/dummy/test', { method: 'POST', body: JSON.stringify(data) }),
+
   // POST create new report
   create: (data) => apiCall('/reports', { method: 'POST', body: JSON.stringify(data) }),
 

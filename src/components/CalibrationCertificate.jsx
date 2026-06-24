@@ -53,6 +53,9 @@ const numberValue = (value) => {
   return Number.isFinite(numeric) ? numeric : null
 }
 
+const firstPresent = (...values) =>
+  values.find((value) => value !== undefined && value !== null && value !== '')
+
 const formatNumber = (value, digits = 2) => {
   const numeric = numberValue(value)
   if (numeric === null) return value ?? ''
@@ -82,7 +85,32 @@ const displayRangeFallback = (type) =>
     ? 750
     : type === 'humidityTemperature' || type === 'humidityHumidity'
       ? 100
-      : 60
+      : type === 'switch'
+        ? 20
+        : 60
+
+const isConvertedReadingType = (type) =>
+  type === 'transmitter' ||
+  type === 'humidityTemperature' ||
+  type === 'humidityHumidity'
+
+const defaultPointCount = (type) => {
+  if (type === 'gauge' || type === 'generic') return 7
+  if (type === 'switch') return 3
+  return 5
+}
+
+const buildWorkbookPoints = (type, start, end) => {
+  if (type === 'transmitter' && start === 0 && end === 750) {
+    return [0, 175, 375, 550, 750]
+  }
+
+  const count = defaultPointCount(type)
+  const divisor = count - 1
+  const step = divisor > 0 ? (end - start) / divisor : 0
+
+  return Array.from({ length: count }, (_, index) => start + step * index)
+}
 
 const buildDisplayRows = (rows, type, payload, source) => {
   const start =
@@ -116,22 +144,15 @@ const buildDisplayRows = (rows, type, payload, source) => {
 
   if (rows.length > 1 && hasRealReadings && !staleSampleRows) return rows
 
-  const excelTransmitterPoints =
-    type === 'transmitter' && start === 0 && resolvedEnd === 750
-      ? [0, 175, 375, 550, 750]
-      : null
-  const step = (resolvedEnd - start) / 5
   const baseRow = rows[0] ?? {}
-  const points =
-    excelTransmitterPoints ??
-    Array.from({ length: 6 }, (_, index) => start + step * index)
+  const points = buildWorkbookPoints(type, start, resolvedEnd)
 
   return points.map((point, index) => ({
     ...baseRow,
     set: formatNumber(point),
     master: formatNumber(point),
-    up: baseRow.up && index === 0 ? baseRow.up : '',
-    down: baseRow.down && index === 0 ? baseRow.down : '',
+    up: index === 0 ? firstPresent(baseRow.up, '') : '',
+    down: index === 0 ? firstPresent(baseRow.down, '') : '',
     mean: '',
     error: '',
   }))
@@ -182,7 +203,7 @@ const calculateRows = (rows, type, payload, source) => {
     displayRangeFallback(type)
 
   return rows.map((row) => {
-    const set = row.set ?? row.master ?? row.calibrationPoint ?? row.point ?? ''
+    const set = firstPresent(row.set, row.master, row.calibrationPoint, row.point, '')
     const setNumber = numberValue(set)
     const expectedMANumber =
       highestRange && setNumber !== null
@@ -194,14 +215,10 @@ const calculateRows = (rows, type, payload, source) => {
           ? 4
           : null
     const expectedSimpleNumber = setNumber
-    const fallbackReading =
-      type === 'transmitter' ||
-      type === 'humidityTemperature' ||
-      type === 'humidityHumidity'
-        ? expectedMANumber
-        : expectedSimpleNumber
-    const up = row.up || row.standardUp || row.switchingUp || fallbackReading || ''
-    const down = row.down || row.standardDown || row.switchingDown || fallbackReading || ''
+    const convertedReading = isConvertedReadingType(type)
+    const fallbackReading = convertedReading ? expectedMANumber : expectedSimpleNumber
+    const up = firstPresent(row.up, row.standardUp, row.switchingUp, fallbackReading, '')
+    const down = firstPresent(row.down, row.standardDown, row.switchingDown, fallbackReading, '')
     const upNumber = numberValue(up)
     const downNumber = numberValue(down)
     const meanNumber =
@@ -212,15 +229,11 @@ const calculateRows = (rows, type, payload, source) => {
       expectedMANumber
     const correspondingValueNumber =
       numberValue(row.correspondingValue ?? row.correspondingPressure ?? row.uucReading) ??
-      (highestRange && meanNumber !== null
+      (convertedReading && highestRange && meanNumber !== null
         ? (meanNumber - 4) * (highestRange / 16)
-        : setNumber === 0 &&
-            meanNumber === 4 &&
-            (type === 'transmitter' ||
-              type === 'humidityTemperature' ||
-              type === 'humidityHumidity')
+        : convertedReading && setNumber === 0 && meanNumber === 4
           ? 0
-          : type === 'gauge' || type === 'switch'
+          : type === 'gauge' || type === 'switch' || type === 'generic'
             ? meanNumber
             : null)
 
@@ -231,7 +244,7 @@ const calculateRows = (rows, type, payload, source) => {
     const convertedError =
       numberValue(row.error) ??
       (setNumber !== null && correspondingValueNumber !== null
-        ? setNumber - correspondingValueNumber
+        ? correspondingValueNumber - setNumber
         : null)
 
     return {
@@ -256,11 +269,19 @@ const calculateRows = (rows, type, payload, source) => {
         correspondingMANumber !== null ? formatNumber(correspondingMANumber, 2) : '',
       correspondingValue:
         correspondingValueNumber !== null ? formatNumber(correspondingValueNumber, 2) : '',
+      correspondingPressure:
+        type === 'gauge' || type === 'switch' || type === 'generic'
+          ? setNumber !== null
+            ? formatNumber(setNumber)
+            : ''
+          : correspondingValueNumber !== null
+            ? formatNumber(correspondingValueNumber, 2)
+            : '',
       uucReading:
         row.uucReading ??
-        (type === 'gauge' || type === 'switch'
-          ? simpleMean !== null
-            ? formatNumber(simpleMean)
+        (type === 'gauge' || type === 'switch' || type === 'generic'
+          ? setNumber !== null
+            ? formatNumber(setNumber)
             : ''
           : correspondingValueNumber !== null
             ? formatNumber(correspondingValueNumber)
@@ -305,43 +326,35 @@ const normalizeReadingSections = (source) => {
 const ReadingTable = ({ section }) => {
   const rows = section.rows ?? []
 
-  if (
-    section.type === 'transmitter' ||
-    section.type === 'humidityTemperature' ||
-    section.type === 'humidityHumidity'
-  ) {
-    const valueLabel =
-      section.type === 'humidityTemperature'
-        ? 'Corresponding Temperature'
-        : section.type === 'humidityHumidity'
-          ? 'Corresponding Humidity'
-          : 'Corresponding Pressure'
-    const valueUnit =
-      section.type === 'humidityTemperature'
-        ? '\u00b0C'
-        : section.type === 'humidityHumidity'
-          ? '%RH'
-          : section.unit || 'Pa'
-
+  if (section.type === 'transmitter') {
     return (
       <table className="cc-tbl cc-readings">
         <thead>
           <tr>
-            <th rowSpan={2}>Sr.</th>
+            <th rowSpan={2}>S.No.</th>
             <th rowSpan={2}>
               Master Reading
-              <small>{section.unit}</small>
+              <small>{section.unit || 'PA'}</small>
             </th>
             <th rowSpan={2}>
               Corresponding mA
-              <small>Calculated</small>
+              <small>mA</small>
             </th>
             <th colSpan={2} className="cc-group-head">
               Standard Reading
             </th>
-            <th rowSpan={2}>Mean Value</th>
-            <th rowSpan={2}>{valueLabel}<small>{valueUnit}</small></th>
-            <th rowSpan={2}>Error<small>{valueUnit}</small></th>
+            <th rowSpan={2}>
+              Mean Value
+              <small>mA</small>
+            </th>
+            <th rowSpan={2}>
+              Corresponding Pressure
+              <small>{section.unit || 'Pa'}</small>
+            </th>
+            <th rowSpan={2}>
+              Error
+              <small>{section.unit || 'Pa'}</small>
+            </th>
             <th rowSpan={2}>Uncertainty</th>
           </tr>
           <tr>
@@ -368,12 +381,71 @@ const ReadingTable = ({ section }) => {
     )
   }
 
+  if (section.type === 'humidityTemperature' || section.type === 'humidityHumidity') {
+    const valueLabel =
+      section.type === 'humidityTemperature'
+        ? 'Corresponding Temperature'
+        : 'Corresponding Humidity'
+    const valueUnit =
+      section.type === 'humidityTemperature'
+        ? '\u00b0C'
+        : '%RH'
+
+    return (
+      <table className="cc-tbl cc-readings">
+        <thead>
+          <tr>
+            <th rowSpan={2}>S.No.</th>
+            <th rowSpan={2}>
+              Master Reading
+              <small>{valueUnit}</small>
+            </th>
+            <th colSpan={2} className="cc-group-head">
+              Standard Reading
+            </th>
+            <th rowSpan={2}>
+              Mean Value
+              <small>mA</small>
+            </th>
+            <th rowSpan={2}>
+              {valueLabel}
+              <small>{valueUnit}</small>
+            </th>
+            <th rowSpan={2}>
+              Error
+              <small>{valueUnit}</small>
+            </th>
+            <th rowSpan={2}>Uncertainty</th>
+          </tr>
+          <tr>
+            <th>Up</th>
+            <th>Down</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i}>
+              <td className="cc-num">{i + 1}</td>
+              <td className="cc-num">{r.set}</td>
+              <td className="cc-num">{r.up}</td>
+              <td className="cc-num">{r.down}</td>
+              <td className="cc-num">{r.mean}</td>
+              <td className="cc-num">{r.correspondingValue}</td>
+              <td className="cc-num">{r.error}</td>
+              <td className="cc-num">{r.unc}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+
   if (section.type === 'switch') {
     return (
       <table className="cc-tbl cc-readings">
         <thead>
           <tr>
-            <th rowSpan={2}>Sr.</th>
+            <th rowSpan={2}>S.No.</th>
             <th rowSpan={2}>Master Reading<small>{section.unit}</small></th>
             <th colSpan={2} className="cc-group-head">Switching Point</th>
             <th rowSpan={2}>Mean Value</th>
@@ -394,7 +466,7 @@ const ReadingTable = ({ section }) => {
               <td className="cc-num">{r.up}</td>
               <td className="cc-num">{r.down}</td>
               <td className="cc-num">{r.mean}</td>
-              <td className="cc-num">{r.uucReading}</td>
+              <td className="cc-num">{r.correspondingPressure}</td>
               <td className="cc-num">{r.error}</td>
               <td className="cc-num">{r.unc}</td>
             </tr>
@@ -408,11 +480,11 @@ const ReadingTable = ({ section }) => {
     <table className="cc-tbl cc-readings">
       <thead>
         <tr>
-          <th rowSpan={2}>Sr.</th>
+          <th rowSpan={2}>S.No.</th>
           <th rowSpan={2}>Calibration Points<small>{section.unit}</small></th>
           <th colSpan={2} className="cc-group-head">Standard Reading</th>
           <th rowSpan={2}>Mean Value</th>
-          <th rowSpan={2}>UUC Reading</th>
+          <th rowSpan={2}>Corresponding Pressure</th>
           <th rowSpan={2}>Error</th>
           <th rowSpan={2}>Uncertainty</th>
         </tr>
@@ -429,7 +501,7 @@ const ReadingTable = ({ section }) => {
             <td className="cc-num">{r.up}</td>
             <td className="cc-num">{r.down}</td>
             <td className="cc-num">{r.mean}</td>
-            <td className="cc-num">{r.uucReading}</td>
+            <td className="cc-num">{r.correspondingPressure}</td>
             <td className="cc-num">{r.error}</td>
             <td className="cc-num">{r.unc}</td>
           </tr>

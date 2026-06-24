@@ -21,6 +21,13 @@ const TABLE_TYPE_OPTIONS = [
   { value: 'humidityHumidity', label: 'Humidity Humidity' },
 ]
 
+const DUMMY_REPORT_OPTIONS = [
+  { value: 'gauge', label: 'Gauge' },
+  { value: 'transmitter', label: 'Transmitter' },
+  { value: 'switch', label: 'Switch' },
+  { value: 'humidity', label: 'Humidity' },
+]
+
 function buildCertificatePdfFilename(report, type) {
   const prefix = type === 'test' ? 'SANC-TC' : 'SANC-CC'
   const certificateNumber = type === 'test'
@@ -88,15 +95,22 @@ const tableTypeForReport = (report, payload) => {
 }
 
 const fallbackRangeEnd = (type) =>
-  type === 'transmitter' ? 750 : type === 'humidity' ? 100 : 60
+  type === 'transmitter'
+    ? 750
+    : type === 'humidity'
+      ? 100
+      : type === 'switch'
+        ? 20
+        : 60
 
 const defaultPoints = (type, start, end) => {
   const resolvedEnd = end && end > start ? end : fallbackRangeEnd(type)
   if (type === 'transmitter' && start === 0 && resolvedEnd === 750) {
     return [0, 175, 375, 550, 750]
   }
-  const step = (resolvedEnd - start) / 5
-  return Array.from({ length: 6 }, (_, index) => start + step * index)
+  const count = type === 'gauge' ? 7 : type === 'switch' ? 3 : 5
+  const step = (resolvedEnd - start) / (count - 1)
+  return Array.from({ length: count }, (_, index) => start + step * index)
 }
 
 const EXCEL_SAMPLE_ROWS = {
@@ -223,6 +237,7 @@ export default function Report() {
   const [error, setError] = useState(null)
   const [readingModalOpen, setReadingModalOpen] = useState(false)
   const [readingSections, setReadingSections] = useState([])
+  const [dummyCase, setDummyCase] = useState('gauge')
   const printRef = useRef(null)
 
   useEffect(() => {
@@ -258,6 +273,25 @@ export default function Report() {
   const handleClearSelection = () => {
     setSelectedReport(null)
     setSearchQuery('')
+  }
+
+  const loadDummyReport = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const report =
+        tab === 'test'
+          ? await reportsAPI.getDummyTest()
+          : await reportsAPI.getDummyCalibration(dummyCase)
+      setSelectedReport(report)
+      setShowSearchResults(false)
+      setSearchQuery('')
+    } catch (err) {
+      setError('Failed to load dummy report')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openReadingsEditor = () => {
@@ -389,6 +423,17 @@ export default function Report() {
             unc: row.unc,
           })),
         }
+
+    if (String(selectedReport.id).startsWith('dummy-')) {
+      const updated = {
+        ...selectedReport,
+        readings: JSON.stringify(payload),
+      }
+
+      setSelectedReport(updated)
+      setReadingModalOpen(false)
+      return
+    }
 
     try {
       setLoading(true)
@@ -524,6 +569,34 @@ export default function Report() {
                 </button>
               )
             })}
+          </div>
+
+          <div className="mb-4 rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-600">
+              Dummy API Test
+            </p>
+            <div className="flex gap-2">
+              {tab === 'calibration' ? (
+                <select
+                  value={dummyCase}
+                  onChange={(e) => setDummyCase(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                >
+                  {DUMMY_REPORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink">
+                  Test &amp; Conformance
+                </div>
+              )}
+              <Button type="button" size="sm" onClick={loadDummyReport} disabled={loading}>
+                Load
+              </Button>
+            </div>
           </div>
 
           {/* Search */}
