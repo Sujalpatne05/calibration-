@@ -53,7 +53,7 @@ export default function DataTable({
                 {columns.map((col) => (
                   <td
                     key={col.key}
-                    className={`px-4 py-4 text-sm text-ink ${alignCls(col.align)} ${col.className || ''}`}
+                    className={`px-4 py-2.5 text-sm text-ink ${alignCls(col.align)} ${col.className || ''}`}
                   >
                     {col.render ? col.render(row, i) : row[col.key]}
                   </td>

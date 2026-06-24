@@ -264,10 +264,10 @@ const buildDummyCalibrationReport = (caseName = 'gauge') => {
     readings: JSON.stringify(readingFixtures[selectedCase]),
     refStandards: JSON.stringify(referenceStandards),
     customRemark: 'Dummy data generated for certificate format and calculation testing only.',
-    calibratedByName: 'Dummy Engineer',
-    calibratedByDesignation: 'Calibration Engineer',
-    approvedByName: 'Dummy Approver',
-    approvedByDesignation: 'Technical Manager',
+    calibratedByName: 'Rahul Patel',
+    calibratedByDesignation: 'Lab Engineer',
+    approvedByName: 'Prashant Patel',
+    approvedByDesignation: 'Lab Incharge',
     customer: normalizeCustomer(),
     instrument: {
       id: 0,
@@ -324,11 +324,6 @@ const dummyTestItems = [
       { key: 'HOUSING', value: 'Die cast aluminum case and bezel with acrylic cover' },
       { key: 'PROCESS CONNECTION', value: '1/8 inch female NPT high and low pressure taps' },
       { key: 'ENCLOSURE RATING', value: 'IP67' }
-    ],
-    checks: [
-      { test: 'Visual inspection', reference: 'No physical damage', observed: 'Accepted', result: 'Conforms' },
-      { test: 'Dimensional inspection', reference: 'As per datasheet', observed: 'Accepted', result: 'Conforms' },
-      { test: 'Performance check', reference: '0 to 60 Pa', observed: 'Within specified accuracy', result: 'Conforms' }
     ]
   }
 ];

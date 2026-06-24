@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, FileText } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import SearchBar from '../components/SearchBar'
 import DataTable from '../components/DataTable'
 import Button from '../components/Button'
@@ -7,11 +8,12 @@ import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import RowActions from '../components/RowActions'
 import { useSearch } from '../hooks/useSearch'
-import { customersAPI } from '../services/api'
+import { customersAPI, invoicesAPI } from '../services/api'
 
 const EMPTY = { name: '', address: '', email: '', phone: '' }
 
 export default function Customers() {
+  const navigate = useNavigate()
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -19,6 +21,9 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [customerInvoices, setCustomerInvoices] = useState([])
 
   // Fetch customers on mount and when search changes
   useEffect(() => {
@@ -61,6 +66,28 @@ export default function Customers() {
         console.error(err)
       }
     }
+  }
+
+  const viewInvoices = async (customer) => {
+    try {
+      setSelectedCustomer(customer)
+      setCustomerInvoices([])
+      setInvoiceModalOpen(true)
+      
+      // Fetch invoices for this customer
+      const data = await invoicesAPI.getAll(customer.name)
+      setCustomerInvoices(data)
+    } catch (err) {
+      console.error('Error fetching invoices:', err)
+    }
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '-'
+    const d = new Date(date)
+    return Number.isNaN(d.getTime())
+      ? '-'
+      : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
   const handleSave = async () => {
@@ -119,6 +146,27 @@ export default function Customers() {
           { key: 'email', header: 'Email', className: 'text-ink-soft', render: (row) => row.email || '-' },
           { key: 'phone', header: 'Phone', render: (row) => row.phone || '-' },
           {
+            key: 'invoiceHistory',
+            header: 'Invoice History',
+            align: 'center',
+            render: (row) => {
+              const count = row._count?.invoices || row.invoices?.length || 0
+              return (
+                <button
+                  type="button"
+                  onClick={() => viewInvoices(row)}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-brand-50 hover:text-brand-600"
+                  title={`View ${count} invoice${count !== 1 ? 's' : ''} for ${row.name}`}
+                >
+                  <FileText size={18} />
+                  <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">
+                    {count}
+                  </span>
+                </button>
+              )
+            },
+          },
+          {
             key: 'actions',
             header: 'Actions',
             align: 'right',
@@ -165,6 +213,65 @@ export default function Customers() {
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
           placeholder="Phone Number"
         />
+      </Modal>
+
+      {/* Invoice History Modal */}
+      <Modal
+        open={invoiceModalOpen}
+        onClose={() => setInvoiceModalOpen(false)}
+        title={`Invoice History - ${selectedCustomer?.name || ''}`}
+        maxWidth="max-w-4xl"
+      >
+        {customerInvoices.length === 0 ? (
+          <div className="py-8 text-center text-ink-faint">
+            No invoices found for this customer.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-ink">Invoice Number</th>
+                  <th className="px-4 py-3 font-semibold text-ink">Date</th>
+                  <th className="px-4 py-3 font-semibold text-ink">Due Date</th>
+                  <th className="px-4 py-3 font-semibold text-ink">Status</th>
+                  <th className="px-4 py-3 text-right font-semibold text-ink">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerInvoices.map((invoice) => (
+                  <tr key={invoice.id} className="border-b border-slate-100 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-ink">{invoice.invoiceNumber}</td>
+                    <td className="px-4 py-3 text-ink-soft">{formatDate(invoice.issueDate)}</td>
+                    <td className="px-4 py-3 text-ink-soft">{formatDate(invoice.dueDate)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
+                        invoice.status === 'paid' 
+                          ? 'bg-green-100 text-green-700'
+                          : invoice.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {invoice.status || 'pending'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => {
+                          setInvoiceModalOpen(false)
+                          navigate(`/report?search=${encodeURIComponent(invoice.invoiceNumber)}`)
+                        }}
+                        className="text-brand-600 hover:text-brand-700 font-medium text-sm"
+                      >
+                        View Report
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Modal>
     </div>
   )

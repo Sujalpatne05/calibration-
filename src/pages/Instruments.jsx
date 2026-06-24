@@ -17,6 +17,18 @@ const EMPTY = {
   customerId: '',
   dueDate: '',
   ignored: false,
+  series: '',
+  rangeStart: '',
+  rangeEnd: '',
+  rangeUnit: '',
+  accuracy: '',
+  accuracyType: '±',
+  resolution: '',
+  type: 'Analog',
+  instrumentId: '',
+  calibrationPoints: '',
+  readingAccuracy: '',
+  description: '',
 }
 
 const fmtDate = (d) =>
@@ -164,7 +176,6 @@ export default function Instruments() {
             className: 'text-ink-soft max-w-[14rem]',
             render: (row) => getCustomerName(row.customerId)
           },
-          { key: 'dueDate', header: 'Cal. Due', render: (r) => fmtDate(r.dueDate) },
           {
             key: 'actions',
             header: 'Actions',
@@ -180,45 +191,197 @@ export default function Instruments() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Instrument' : 'Add Instrument'}
-        maxWidth="max-w-lg"
+        title={editing ? 'Update Instrument' : 'Add Instrument'}
+        maxWidth="max-w-5xl"
         footer={
           <Button className="w-full" onClick={handleSave} disabled={loading}>
             {loading ? 'Saving...' : 'Save'}
           </Button>
         }
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormInput
-            label="Instrument Name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Pressure Gauge"
-          />
-          <FormInput
-            label="Serial Number"
-            value={form.serial}
-            onChange={(e) => setForm({ ...form, serial: e.target.value })}
-            placeholder="e.g. PG-1187"
-          />
-          <FormInput
-            label="Make"
-            value={form.make}
-            onChange={(e) => setForm({ ...form, make: e.target.value })}
-            placeholder="e.g. Wika"
-          />
-          <FormInput
-            label="Model"
-            value={form.model}
-            onChange={(e) => setForm({ ...form, model: e.target.value })}
-            placeholder="e.g. A-308"
-          />
-          <FormInput
-            label="Category"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-            placeholder="e.g. Pressure"
-          />
+        <div className="space-y-6">
+          {/* Basic Info Row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <FormInput
+              label="Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Instrument Name"
+            />
+            <div className="w-full">
+              <label className="mb-1.5 block text-sm font-medium text-ink-soft">Category</label>
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="">Select category…</option>
+                <option value="Pressure">Pressure</option>
+                <option value="Temperature">Temperature</option>
+                <option value="Flow">Flow</option>
+                <option value="Level">Level</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <FormInput
+              label="Serial Number"
+              value={form.serial}
+              onChange={(e) => setForm({ ...form, serial: e.target.value })}
+              placeholder="12"
+            />
+          </div>
+
+          {/* Make, Model, Series Row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="w-full">
+              <label className="mb-1.5 block text-sm font-medium text-ink-soft">Make</label>
+              <select
+                value={form.make}
+                onChange={(e) => setForm({ ...form, make: e.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="">Select make…</option>
+                <option value="Dwyer">Dwyer</option>
+                <option value="Wika">Wika</option>
+                <option value="Ashcroft">Ashcroft</option>
+                <option value="Fluke">Fluke</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <FormInput
+              label="Model"
+              value={form.model}
+              onChange={(e) => setForm({ ...form, model: e.target.value })}
+              placeholder="Model"
+            />
+            <FormInput
+              label="Series"
+              value={form.series}
+              onChange={(e) => setForm({ ...form, series: e.target.value })}
+              placeholder="Series"
+            />
+          </div>
+
+          {/* Range Section */}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-ink">Range</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <FormInput
+                label="Start"
+                value={form.rangeStart}
+                onChange={(e) => setForm({ ...form, rangeStart: e.target.value })}
+                placeholder="0"
+              />
+              <FormInput
+                label="End"
+                value={form.rangeEnd}
+                onChange={(e) => setForm({ ...form, rangeEnd: e.target.value })}
+                placeholder="100"
+              />
+              <div className="w-full">
+                <label className="mb-1.5 block text-sm font-medium text-ink-soft">Unit</label>
+                <select
+                  value={form.rangeUnit}
+                  onChange={(e) => setForm({ ...form, rangeUnit: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Select unit…</option>
+                  <option value="Pa">Pa</option>
+                  <option value="PSI">PSI</option>
+                  <option value="Bar">Bar</option>
+                  <option value="°C">°C</option>
+                  <option value="°F">°F</option>
+                  <option value="mA">mA</option>
+                  <option value="%">%</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Accuracy, Resolution, Type Row */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="w-full">
+              <label className="mb-1.5 block text-sm font-medium text-ink-soft">Accuracy</label>
+              <div className="flex gap-2">
+                <select
+                  value={form.accuracyType}
+                  onChange={(e) => setForm({ ...form, accuracyType: e.target.value })}
+                  className="w-20 rounded-xl border border-slate-200 bg-slate-50/80 px-2 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="±">±</option>
+                  <option value="+">+</option>
+                  <option value="-">-</option>
+                </select>
+                <input
+                  type="text"
+                  value={form.accuracy}
+                  onChange={(e) => setForm({ ...form, accuracy: e.target.value })}
+                  placeholder="5%"
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+            </div>
+            <FormInput
+              label="Resolution"
+              value={form.resolution}
+              onChange={(e) => setForm({ ...form, resolution: e.target.value })}
+              placeholder="0.1"
+            />
+            <div className="w-full">
+              <label className="mb-1.5 block text-sm font-medium text-ink-soft">Type</label>
+              <div className="flex gap-4 pt-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="type"
+                    value="Analog"
+                    checked={form.type === 'Analog'}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="h-4 w-4 text-brand-600"
+                  />
+                  <span className="text-sm text-ink">Analog</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="type"
+                    value="Digital"
+                    checked={form.type === 'Digital'}
+                    onChange={(e) => setForm({ ...form, type: e.target.value })}
+                    className="h-4 w-4 text-brand-600"
+                  />
+                  <span className="text-sm text-ink">Digital</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Standard Details Section */}
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-ink">Standard details</h3>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <FormInput
+                label="Instrument Id"
+                value={form.instrumentId}
+                onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
+                placeholder="Instrument Id"
+              />
+              <FormInput
+                label="Calibration Points"
+                value={form.calibrationPoints}
+                onChange={(e) => setForm({ ...form, calibrationPoints: e.target.value })}
+                placeholder="0, 25, 50, 75, 100"
+              />
+              <FormInput
+                label="Reading Accuracy"
+                value={form.readingAccuracy}
+                onChange={(e) => setForm({ ...form, readingAccuracy: e.target.value })}
+                placeholder="±0.5"
+              />
+            </div>
+          </div>
+
+          {/* Customer */}
           <div className="w-full">
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">Customer</label>
             <select
@@ -234,12 +397,18 @@ export default function Instruments() {
               ))}
             </select>
           </div>
-          <FormInput
-            label="Calibration Due Date"
-            type="date"
-            value={form.dueDate}
-            onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-          />
+
+          {/* Description */}
+          <div className="w-full">
+            <label className="mb-1.5 block text-sm font-medium text-ink-soft">Description</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Additional notes or description..."
+              rows={3}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            />
+          </div>
         </div>
       </Modal>
     </div>

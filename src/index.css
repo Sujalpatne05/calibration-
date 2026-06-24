@@ -166,7 +166,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 /* Tables */
 .cc-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 6.9pt; background: #fff; border: 1px solid var(--cc-line); border-radius: 4px; overflow: hidden; }
-.cc-tbl th, .cc-tbl td { padding: 2.5px 4px; text-align: left; border-bottom: 1px solid var(--cc-line-soft); border-right: 1px solid var(--cc-line-soft); vertical-align: middle; line-height: 1.22; }
+.cc-tbl th, .cc-tbl td { padding: 2.5px 4px; text-align: center; border-bottom: 1px solid var(--cc-line-soft); border-right: 1px solid var(--cc-line-soft); vertical-align: middle; line-height: 1.22; }
 .cc-tbl th:last-child, .cc-tbl td:last-child { border-right: none; }
 .cc-tbl tr:last-child td { border-bottom: none; }
 .cc-tbl thead th { background: var(--cc-sky); color: var(--cc-blue); font-weight: 700; font-size: 6pt; text-transform: uppercase; letter-spacing: 0; border-bottom: 1px solid var(--cc-blue); }
@@ -175,7 +175,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-num { font-variant-numeric: tabular-nums; font-family: var(--cc-font-mono); text-align: center; font-size: 6.6pt; }
 
 .cc-tbl-compact { table-layout: fixed; font-size: 6.5pt; }
-.cc-tbl-compact th, .cc-tbl-compact td { padding: 3px 3px; word-wrap: break-word; overflow-wrap: break-word; }
+.cc-tbl-compact th, .cc-tbl-compact td { padding: 3px 3px; word-wrap: break-word; overflow-wrap: break-word; text-align: center; }
 .cc-tbl-compact thead th { font-size: 5.6pt; letter-spacing: 0; text-transform: none; line-height: 1.25; white-space: normal; }
 
 .cc-readings thead th { text-align: center; vertical-align: middle; }
@@ -192,19 +192,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-remarks li { margin-bottom: 1px; }
 .cc-remarks li:last-child { margin-bottom: 0; }
 
-/* Signatures */
-.cc-sign-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 148px minmax(0, 1fr);
-  align-items: end;
-  gap: 8px;
-  margin-top: 3px;
-  page-break-inside: avoid;
-  break-inside: avoid;
-}
+.cc-sign-grid { display: grid; grid-template-columns: minmax(0, 1fr) 136px minmax(0, 1fr); gap: 8px; margin-top: 3px; page-break-inside: avoid; break-inside: avoid; }
 .cc-sign-cell { text-align: center; padding: 3px 5px 2px; border: 1px solid var(--cc-line); border-radius: 4px; background: #fff; }
 .cc-role { font-size: 5.8pt; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--cc-cyan); }
 .cc-sign-space { height: 15px; margin: 2px auto 1px; border-bottom: 1px dashed var(--cc-line); width: 68%; }
+.cc-sign-img { display: block; width: 100%; max-width: 180px; height: 32px; margin: 4px auto 2px; object-fit: contain; }
 .cc-sign-name { font-size: 6.9pt; font-weight: 700; color: var(--cc-blue); margin-top: 1px; }
 .cc-sign-desig { font-size: 5.8pt; color: var(--cc-muted); margin-top: 0; }
 .cc-stamp-cell { display: flex; align-items: center; justify-content: center; min-height: 96px; }
@@ -322,6 +314,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-page-dense .cc-sign-cell { padding: 2px 4px 1px; }
 .cc-page-dense .cc-role { font-size: 5pt; }
 .cc-page-dense .cc-sign-space { height: 9px; margin: 1px auto; }
+.cc-page-dense .cc-sign-img { height: 22px; max-width: 140px; margin: 2px auto 1px; }
 .cc-page-dense .cc-sign-name { font-size: 5.8pt; }
 .cc-page-dense .cc-sign-desig { font-size: 5pt; }
 .cc-page-dense .cc-stamp-cell { min-height: 38px; }

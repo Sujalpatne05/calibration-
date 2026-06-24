@@ -18,7 +18,12 @@ export const getAllCustomers = async (req, res) => {
 
     const customers = await prisma.customer.findMany({
       where,
-      orderBy: { id: 'asc' }
+      orderBy: { id: 'asc' },
+      include: {
+        _count: {
+          select: { invoices: true }
+        }
+      }
     });
 
     res.json(customers);

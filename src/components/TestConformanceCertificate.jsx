@@ -33,7 +33,6 @@ const normalizeItems = (items) =>
     name: item.name ?? item.title ?? 'Instrument',
     qty: item.qty ?? item.quantity ?? 1,
     specs: asList(item.specs),
-    checks: asList(item.checks ?? item.conformanceChecks ?? item.tests),
   }))
 
 const fallbackItems = (source) => {
@@ -59,11 +58,6 @@ const fallbackItems = (source) => {
         { key: 'SERIAL NO', value: serial || 'N/A' },
         { key: 'RANGE', value: range || 'N/A' },
         { key: 'ACCURACY', value: accuracy || 'N/A' },
-      ],
-      checks: [
-        { test: 'Visual inspection', reference: 'No physical damage', observed: 'Accepted', result: 'Conforms' },
-        { test: 'Dimensional inspection', reference: 'As per model/specification', observed: 'Accepted', result: 'Conforms' },
-        { test: 'Performance check', reference: range || 'As specified', observed: 'Accepted', result: 'Conforms' },
       ],
     },
   ]
@@ -149,28 +143,6 @@ const T = (props) => {
                       </Fragment>
                     ))}
                   </div>
-                ) : null}
-                {item.checks.length ? (
-                  <table className="tc-checks">
-                    <thead>
-                      <tr>
-                        <th>Test</th>
-                        <th>Reference</th>
-                        <th>Observed</th>
-                        <th>Result</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {item.checks.map((check, i) => (
-                        <tr key={i}>
-                          <td>{check.test ?? check.name}</td>
-                          <td>{check.reference ?? check.expected ?? check.point}</td>
-                          <td>{check.observed ?? check.output ?? check.value}</td>
-                          <td className="tc-result">{check.result ?? 'Conforms'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 ) : null}
               </div>
               <div className="tc-qty">{item.qty}</div>

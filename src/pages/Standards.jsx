@@ -134,16 +134,16 @@ export default function Standards() {
         data={results}
         emptyMessage={loading ? 'Loading...' : 'No standards match your search.'}
         columns={[
-          { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
-          { key: 'instrument', header: 'Instrument', className: 'font-medium' },
-          { key: 'instrumentId', header: 'Instrument ID', className: 'text-ink-soft' },
-          { key: 'calibrationDate', header: 'Cal. Date', render: (r) => fmtDate(r.calibrationDate) },
-          { key: 'reportNo', header: 'Report No', className: 'text-ink-soft' },
-          { key: 'certificateNo', header: 'Certificate No', className: 'font-medium' },
+          { key: 'sr', header: 'SR', render: (_, i) => i + 1, align: 'center', className: 'text-ink-faint w-12' },
+          { key: 'instrument', header: 'Instrument', align: 'center', className: 'font-medium' },
+          { key: 'instrumentId', header: 'Instrument Id', align: 'center', className: 'text-ink-soft' },
+          { key: 'calibrationDate', header: 'Calibration Date', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
+          { key: 'reportNo', header: 'Report NO', align: 'center', className: 'text-ink-soft' },
+          { key: 'certificateNo', header: 'Calibration Certificate Number', align: 'center', className: 'font-medium' },
           {
             key: 'actions',
             header: 'Actions',
-            align: 'right',
+            align: 'center',
             render: (row) => (
               <RowActions onEdit={() => openEdit(row)} onDelete={() => handleDelete(row)} />
             ),
@@ -155,50 +155,77 @@ export default function Standards() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Standard' : 'Add Standard'}
+        title={editing ? 'Update Standard' : 'Add Standard'}
         maxWidth="max-w-lg"
         footer={
           <Button className="w-full" onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? 'Saving...' : editing ? 'Update' : 'Save'}
           </Button>
         }
       >
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instrument</label>
-            <select
-              value={form.instrumentId}
-              onChange={(e) => {
-                const instrument = instruments.find((i) => i.id === parseInt(e.target.value))
-                setForm({ ...form, instrumentId: parseInt(e.target.value), instrument: instrument?.name || '' })
-              }}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-            >
-              <option value="">Select instrument…</option>
-              {instruments.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={form.instrumentId}
+                onChange={(e) => {
+                  const instrument = instruments.find((i) => i.id === parseInt(e.target.value))
+                  setForm({ ...form, instrumentId: parseInt(e.target.value), instrument: instrument?.name || '' })
+                }}
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="">Select instrument…</option>
+                {instruments.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
+                title="Add new instrument"
+              >
+                <span className="text-2xl leading-none">+</span>
+              </button>
+            </div>
           </div>
-          <FormInput
-            label="Calibration Date"
-            type="date"
-            value={form.calibrationDate}
-            onChange={(e) => setForm({ ...form, calibrationDate: e.target.value })}
-          />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-soft">
+              Previous Calibration Date{' '}
+              {editing && form.calibrationDate && (
+                <span className="text-red-400">{fmtDate(form.calibrationDate)}</span>
+              )}
+            </label>
+            <input
+              type="date"
+              value={form.calibrationDate}
+              onChange={(e) => setForm({ ...form, calibrationDate: e.target.value })}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            />
+          </div>
+
           <FormInput
             label="Report Number"
             value={form.reportNo}
             onChange={(e) => setForm({ ...form, reportNo: e.target.value })}
-            placeholder="e.g. CAL-001"
+            placeholder="CAL-25100187/PR/02"
           />
+
+          <FormInput
+            label="Instrument Id"
+            value={form.instrumentId}
+            onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
+            placeholder="Instrument Id"
+          />
+
           <FormInput
             label="Certificate Number"
             value={form.certificateNo}
             onChange={(e) => setForm({ ...form, certificateNo: e.target.value })}
-            placeholder="e.g. CERT-001"
+            placeholder="014L56"
           />
         </div>
       </Modal>

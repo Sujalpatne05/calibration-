@@ -35,6 +35,15 @@ export default function Invoices() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  // Load search query from URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const searchParam = params.get('search')
+    if (searchParam) {
+      setQuery(searchParam)
+    }
+  }, [])
+
   useEffect(() => {
     fetchInvoices()
   }, [query, applied])
@@ -84,13 +93,12 @@ export default function Invoices() {
   }
 
   const downloadLabelCsv = (row) => {
-    const headers = ['Invoice Number', 'Customer', 'Date', 'Status', 'Amount']
+    const headers = ['Invoice Number', 'Customer', 'Date', 'Status']
     const values = [
       row.invoiceNumber,
       row.customer?.name || '',
       fmtDate(row.issueDate),
       row.status || '',
-      row.amount || 0,
     ]
     const csv = `${headers.map(csvEscape).join(',')}\n${values.map(csvEscape).join(',')}\n`
 
@@ -255,14 +263,6 @@ export default function Invoices() {
                   </span>
                 </button>
               ),
-            },
-            {
-              key: 'amount',
-              header: 'Amount',
-              align: 'right',
-              className: 'text-ink-soft',
-              headerClassName: 'text-brand-300',
-              render: (row) => `Rs. ${row.amount || 0}`,
             },
           ]}
         />

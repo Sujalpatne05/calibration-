@@ -30,14 +30,14 @@ export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) 
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-100 bg-canvas/80 backdrop-blur-md">
+    <header className="sticky top-0 z-[60] border-b border-slate-100 bg-canvas/80 backdrop-blur-md">
       <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         {/* Left: toggles + title */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           {/* Mobile menu */}
           <button
             onClick={onOpenMobile}
-            className="rounded-lg p-2 text-ink-soft hover:bg-white lg:hidden"
+            className="flex-shrink-0 rounded-lg p-2 text-ink-soft hover:bg-white lg:hidden"
             aria-label="Open menu"
           >
             <Menu size={22} />
@@ -45,13 +45,13 @@ export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) 
           {/* Desktop collapse */}
           <button
             onClick={onToggleSidebar}
-            className="hidden rounded-lg p-2 text-ink-soft transition hover:bg-white lg:inline-flex"
+            className="hidden flex-shrink-0 rounded-lg p-2 text-ink-soft transition hover:bg-white lg:inline-flex"
             aria-label="Toggle sidebar"
           >
             {collapsed ? <PanelLeft size={20} /> : <PanelLeftClose size={20} />}
           </button>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="font-display text-2xl font-bold leading-tight text-gradient-brand sm:text-3xl">
               Calibration Report
             </h1>
@@ -62,7 +62,7 @@ export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) 
         </div>
 
         {/* Right: actions */}
-        <div className="flex items-center gap-1 sm:gap-3">
+        <div className="flex flex-shrink-0 items-center gap-1 sm:gap-3">
           {/* Notifications */}
           <div className="relative">
             <button

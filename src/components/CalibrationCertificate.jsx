@@ -555,10 +555,10 @@ const C = (props) => {
     env_pressure = source.envPressure ?? '',
     readingSections: sections = readingSections,
     custom_remark = source.customRemark ?? '',
-    calibrated_by_name = source.calibratedByName ?? '',
-    calibrated_by_designation = source.calibratedByDesignation ?? '',
-    approved_by_name = source.approvedByName ?? '',
-    approved_by_designation = source.approvedByDesignation ?? '',
+    calibrated_by_name = source.calibratedByName || 'Rahul Patel',
+    calibrated_by_designation = source.calibratedByDesignation || 'Lab Engineer',
+    approved_by_name = source.approvedByName || 'Prashant Patel',
+    approved_by_designation = source.approvedByDesignation || 'Lab Incharge',
   } = normalized
 
   return (
@@ -823,7 +823,11 @@ const C = (props) => {
     <section className="cc-sign-grid">
       <div className="cc-sign-cell">
         <div className="cc-role">Calibrated By</div>
-        <div className="cc-sign-space" />
+        <img
+          className="cc-sign-img"
+          src="/rahul-signature.png"
+          alt="Rahul Patel signature"
+        />
         <div className="cc-sign-name">{calibrated_by_name}</div>
         <div className="cc-sign-desig">{calibrated_by_designation}</div>
       </div>
@@ -836,7 +840,11 @@ const C = (props) => {
       </div>
       <div className="cc-sign-cell">
         <div className="cc-role">Approved By</div>
-        <div className="cc-sign-space" />
+        <img
+          className="cc-sign-img"
+          src="/prashant-signature.png"
+          alt="Prashant Patel signature"
+        />
         <div className="cc-sign-name">{approved_by_name}</div>
         <div className="cc-sign-desig">{approved_by_designation}</div>
       </div>
