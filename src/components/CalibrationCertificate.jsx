@@ -563,7 +563,7 @@ const C = (props) => {
 
   return (
   <article
-    className="cc-page"
+    className={`cc-page ${sections.length > 1 ? 'cc-page-dense' : ''}`}
     role="document"
     aria-label="Calibration Certificate"
   >

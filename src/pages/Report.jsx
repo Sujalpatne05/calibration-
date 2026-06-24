@@ -229,9 +229,10 @@ const normalizeReadingEditorSections = (report) => {
 
 export default function Report() {
   const [tab, setTab] = useState('calibration')
-  const [searchQuery, setSearchQuery] = useState('')
+  const initialSearchQuery = new URLSearchParams(window.location.search).get('search') || ''
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery)
   const [selectedReport, setSelectedReport] = useState(null)
-  const [showSearchResults, setShowSearchResults] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(Boolean(initialSearchQuery))
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)

@@ -224,6 +224,123 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-footer-band { position: absolute; left: 0; right: 0; bottom: 0; padding: 1px 8mm; color: rgba(255,255,255,0.75); font-size: 5.3pt; letter-spacing: 0.2px; display: flex; justify-content: space-between; z-index: 2; }
 .cc-page-num { font-family: var(--cc-font-mono); }
 
+/* Dense one-page calibration mode for long certificates such as humidity. */
+.cc-page.cc-page-dense {
+  padding: 5.5mm 6mm 15mm 6mm;
+  font-size: 6.7pt;
+  line-height: 1.08;
+}
+.cc-page-dense .cc-letterhead {
+  grid-template-columns: 42px 1fr auto;
+  gap: 7px;
+  padding-bottom: 3px;
+}
+.cc-page-dense .cc-logo,
+.cc-page-dense .cc-logo svg {
+  width: 42px;
+  height: 42px;
+}
+.cc-page-dense .cc-co-name { font-size: 10pt; line-height: 1; }
+.cc-page-dense .cc-co-sub { font-size: 6.4pt; margin-top: 0; }
+.cc-page-dense .cc-head-meta { font-size: 5.9pt; line-height: 1.1; }
+.cc-page-dense .cc-meta-label { font-size: 5.4pt; }
+.cc-page-dense .cc-meta-value { font-size: 6.3pt; }
+.cc-page-dense .cc-head-rule { height: 1.5px; margin-top: 1px; }
+.cc-page-dense .cc-title-block { margin: 1px 0 1px; padding: 0; }
+.cc-page-dense .cc-eyebrow,
+.cc-page-dense .cc-title,
+.cc-page-dense .cc-title-ornament {
+  display: none;
+}
+.cc-page-dense .cc-section { margin-top: 4px; }
+.cc-page-dense .cc-section-title {
+  font-size: 5.8pt;
+  min-height: 7px;
+  margin-bottom: 3px;
+  letter-spacing: 0.55px;
+}
+.cc-page-dense .cc-section-title::before { height: 7px; }
+.cc-page-dense .cc-info-cell {
+  min-height: 21px;
+  padding: 2px 4px;
+  gap: 1px;
+}
+.cc-page-dense .cc-label { font-size: 4.8pt; }
+.cc-page-dense .cc-value { font-size: 6.2pt; line-height: 1.05; }
+.cc-page-dense .cc-customer-card {
+  gap: 5px;
+  padding: 3px 5px;
+}
+.cc-page-dense .cc-block-h3 { font-size: 5.4pt; margin-bottom: 0; }
+.cc-page-dense .cc-name { font-size: 7pt; margin-bottom: 0; }
+.cc-page-dense .cc-addr { font-size: 6pt; line-height: 1.08; }
+.cc-page-dense .cc-meta { font-size: 5.8pt; line-height: 1.08; }
+.cc-page-dense .cc-tbl {
+  font-size: 6pt;
+  border-radius: 3px;
+}
+.cc-page-dense .cc-tbl th,
+.cc-page-dense .cc-tbl td {
+  padding: 1.35px 3px;
+  line-height: 1.05;
+}
+.cc-page-dense .cc-tbl thead th { font-size: 5.1pt; }
+.cc-page-dense .cc-num { font-size: 5.8pt; }
+.cc-page-dense .cc-tbl-compact th,
+.cc-page-dense .cc-tbl-compact td { padding: 1.6px 2.5px; }
+.cc-page-dense .cc-readings thead tr:first-child th,
+.cc-page-dense .cc-readings thead tr:nth-child(2) th {
+  padding-top: 1.6px;
+  padding-bottom: 1.6px;
+  line-height: 1.02;
+}
+.cc-page-dense .cc-readings thead small {
+  font-size: 4.2pt;
+  margin-top: 0;
+}
+.cc-page-dense .cc-reading-stack { gap: 2px; }
+.cc-page-dense .cc-reading-title {
+  margin-bottom: 1px;
+  font-size: 5.5pt;
+}
+.cc-page-dense .cc-note-italic {
+  font-size: 5pt;
+  margin-top: 1px;
+  line-height: 1.02;
+}
+.cc-page-dense .cc-remarks {
+  padding: 2.5px 5px 2.5px 15px;
+  font-size: 5.8pt;
+  line-height: 1.02;
+}
+.cc-page-dense .cc-remarks li { margin-bottom: 0; }
+.cc-page-dense .cc-sign-grid {
+  grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  gap: 5px;
+  margin-top: 1px;
+}
+.cc-page-dense .cc-sign-cell { padding: 2px 4px 1px; }
+.cc-page-dense .cc-role { font-size: 5pt; }
+.cc-page-dense .cc-sign-space { height: 9px; margin: 1px auto; }
+.cc-page-dense .cc-sign-name { font-size: 5.8pt; }
+.cc-page-dense .cc-sign-desig { font-size: 5pt; }
+.cc-page-dense .cc-stamp-cell { min-height: 38px; }
+.cc-page-dense .cc-stamp-img {
+  width: 72px;
+  max-height: 40px;
+  transform: translateY(0);
+}
+.cc-page-dense .cc-footer-wrap { height: 13mm; }
+.cc-page-dense .cc-footer-content {
+  padding: 2.4mm 6mm 2.6mm;
+  font-size: 5pt;
+  line-height: 1.05;
+}
+.cc-page-dense .cc-footer-band {
+  padding: 0 6mm;
+  font-size: 4.5pt;
+}
+
 /* CC Print */
 @media print {
   @page { size: A4 portrait; margin: 0; }
@@ -330,6 +447,10 @@ input[type='date']::-webkit-calendar-picker-indicator {
   margin: 0 !important;
   padding: 8.5mm 8mm 22mm 8mm !important;
   box-shadow: none !important;
+}
+
+.pdf-export-mode .cc-page.cc-page-dense {
+  padding: 5.5mm 6mm 15mm 6mm !important;
 }
 
 /* ===========================================================

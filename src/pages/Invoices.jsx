@@ -1,15 +1,29 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Download, FolderClosed, FileText, Tag, Eye } from 'lucide-react'
-import SearchBar from '../components/SearchBar'
-import DateRangeFilter from '../components/DateRangeFilter'
+import { Calendar, Download, FileArchive, FolderClosed, Search, Tag } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import Button from '../components/Button'
 import StatusBadge from '../components/StatusBadge'
 import { invoicesAPI } from '../services/api'
 
-const fmtDate = (d) =>
-  new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+const fmtDate = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? '-'
+    : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
+
+const downloadTextFile = (filename, content, type) => {
+  const blob = new Blob([content], { type })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
 
 export default function Invoices() {
   const navigate = useNavigate()
@@ -43,6 +57,13 @@ export default function Invoices() {
     setApplied({ from, to })
   }
 
+  const clearFilters = () => {
+    setQuery('')
+    setFrom('')
+    setTo('')
+    setApplied({ from: '', to: '' })
+  }
+
   const exportCsv = async () => {
     try {
       const data = await invoicesAPI.exportCSV(query, applied.from, applied.to)
@@ -57,49 +78,99 @@ export default function Invoices() {
     }
   }
 
+  const openReport = (row) => {
+    const search = row.invoiceNumber || row.customer?.name || ''
+    navigate(`/report?search=${encodeURIComponent(search)}`)
+  }
+
+  const downloadLabelCsv = (row) => {
+    const headers = ['Invoice Number', 'Customer', 'Date', 'Status', 'Amount']
+    const values = [
+      row.invoiceNumber,
+      row.customer?.name || '',
+      fmtDate(row.issueDate),
+      row.status || '',
+      row.amount || 0,
+    ]
+    const csv = `${headers.map(csvEscape).join(',')}\n${values.map(csvEscape).join(',')}\n`
+
+    downloadTextFile(
+      `${String(row.invoiceNumber || 'invoice').replace(/[<>:"/\\|?*]+/g, '-')}-label.csv`,
+      csv,
+      'text/csv;charset=utf-8;'
+    )
+  }
+
+  const showClear = query || from || to || applied.from || applied.to
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-gradient-to-br from-emerald-50 to-emerald-100 p-2.5">
-            <FileText size={24} className="text-emerald-600" />
-          </div>
-          <div>
-            <h1 className="font-display text-2xl font-semibold text-ink">Invoices</h1>
-            <p className="text-sm text-ink-faint">Calibration invoices and reports</p>
-          </div>
+    <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+      {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
+
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="grid flex-1 gap-4 md:grid-cols-3">
+          <label className="relative block">
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search Certificate"
+              className="h-[58px] w-full rounded-2xl border border-slate-200 bg-white pl-5 pr-12 text-base text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            />
+            <Search
+              size={22}
+              className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-ink"
+            />
+          </label>
+
+          {[
+            { label: 'From', value: from, onChange: setFrom },
+            { label: 'To', value: to, onChange: setTo },
+          ].map((field) => (
+            <label className="relative block" key={field.label}>
+              <span className="sr-only">{field.label}</span>
+              <input
+                type="date"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                aria-label={field.label}
+                className="h-[58px] w-full rounded-2xl border border-slate-200 bg-white pl-5 pr-12 text-base text-ink outline-none transition focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+              />
+              <Calendar
+                size={21}
+                className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-ink"
+              />
+            </label>
+          ))}
         </div>
-        <Button onClick={exportCsv} variant="secondary">
-          <Download size={18} /> Export CSV
-        </Button>
+
+        <div className="flex flex-wrap gap-3 xl:justify-end">
+          <Button onClick={handleApplyFilter} size="lg" className="min-w-[166px]">
+            Show reports
+          </Button>
+          <Button onClick={exportCsv} variant="secondary" size="lg">
+            <Download size={18} /> Export CSV
+          </Button>
+          {showClear ? (
+            <Button onClick={clearFilters} variant="ghost" size="lg">
+              Clear
+            </Button>
+          ) : null}
+        </div>
       </div>
 
-      {error && <div className="rounded bg-red-100 p-3 text-red-700">{error}</div>}
-
-      {/* Filters */}
-      <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Invoice or customer"
-            className="lg:col-span-2"
-          />
-          <DateRangeFilter
-            from={from}
-            to={to}
-            onChangeFrom={setFrom}
-            onChangeTo={setTo}
-            onApply={handleApplyFilter}
-          />
+      <div className="mt-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ink">All Invoices</h2>
+          <p className="text-sm text-ink-faint">
+            {loading
+              ? 'Loading invoices...'
+              : `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} found`}
+          </p>
         </div>
       </div>
 
-      {/* Data table */}
-      <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
-        <h2 className="mb-6 font-display text-lg font-semibold text-ink">All Invoices</h2>
-
+      <div className="mt-5 overflow-hidden border-t border-slate-100">
         <DataTable
           rowKey={(r) => r.id}
           data={invoices}
@@ -109,36 +180,89 @@ export default function Invoices() {
               key: 'sr',
               header: 'Sr',
               render: (_, i) => i + 1,
-              className: 'text-ink-faint w-12',
+              className: 'w-14 text-ink',
+              headerClassName: 'text-brand-300',
             },
             {
               key: 'invoiceNumber',
               header: 'Invoice Number',
               className: 'font-medium',
+              headerClassName: 'text-brand-300',
+              render: (row) => (
+                <div>
+                  <div>{row.invoiceNumber}</div>
+                  <div className="mt-1 text-xs font-normal text-ink-faint">
+                    {row.customer?.name || 'N/A'}
+                  </div>
+                </div>
+              ),
             },
             {
               key: 'issueDate',
               header: 'Date',
-              render: (r) => fmtDate(r.issueDate),
-              className: 'text-ink-soft',
+              render: (row) => fmtDate(row.issueDate),
+              className: 'text-ink',
+              headerClassName: 'text-brand-300',
             },
             {
-              key: 'status',
-              header: 'Status',
-              render: (r) => (
-                <StatusBadge status={r.status} />
+              key: 'statusReport',
+              header: 'Status Report',
+              align: 'center',
+              headerClassName: 'text-brand-300',
+              render: (row) => (
+                <button
+                  type="button"
+                  onClick={() => openReport(row)}
+                  className="inline-flex flex-col items-center gap-1 rounded-lg px-2 py-1 transition hover:bg-amber-50"
+                  title={`Open report search for ${row.invoiceNumber}`}
+                >
+                  <FolderClosed size={26} className="text-amber-400" />
+                  <StatusBadge status={row.status} />
+                </button>
               ),
             },
             {
-              key: 'customer',
-              header: 'Customer',
-              render: (r) => r.customer?.name || 'N/A',
-              className: 'text-ink-soft max-w-sm',
+              key: 'archive',
+              header: 'Archive',
+              align: 'center',
+              headerClassName: 'text-brand-300',
+              render: (row) => (
+                <button
+                  type="button"
+                  onClick={() => openReport(row)}
+                  className="inline-flex rounded-lg p-2 text-ink transition hover:bg-slate-100"
+                  title={`Open report for ${row.invoiceNumber}`}
+                >
+                  <FileArchive size={26} />
+                </button>
+              ),
+            },
+            {
+              key: 'labels',
+              header: 'Labels',
+              align: 'center',
+              headerClassName: 'text-brand-300',
+              render: (row) => (
+                <button
+                  type="button"
+                  onClick={() => downloadLabelCsv(row)}
+                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-ink transition hover:bg-slate-100"
+                  title={`Download CSV label for ${row.invoiceNumber}`}
+                >
+                  <Tag size={24} />
+                  <span className="rounded border-2 border-ink px-1 py-0.5 text-[10px] font-black leading-none">
+                    CSV
+                  </span>
+                </button>
+              ),
             },
             {
               key: 'amount',
               header: 'Amount',
-              render: (r) => `₹${r.amount || 0}`,
+              align: 'right',
+              className: 'text-ink-soft',
+              headerClassName: 'text-brand-300',
+              render: (row) => `Rs. ${row.amount || 0}`,
             },
           ]}
         />
