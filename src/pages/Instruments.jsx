@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Plus, EyeOff, ListChecks } from 'lucide-react'
 import SearchBar from '../components/SearchBar'
 import DataTable from '../components/DataTable'
@@ -29,6 +29,7 @@ const EMPTY = {
   calibrationPoints: '',
   readingAccuracy: '',
   description: '',
+  calibrationPeriod: '12',
 }
 
 const fmtDate = (d) =>
@@ -36,49 +37,74 @@ const fmtDate = (d) =>
     ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—'
 
+// Default options for dropdowns (defined outside component to prevent re-renders)
+const DEFAULT_CATEGORIES = ['Gauge', 'Transmitter', 'Switch', 'Pressure', 'Temperature', 'Flow', 'Level', 'Other']
+const DEFAULT_MAKES = ['Dwyer', 'Wika', 'Ashcroft', 'Fluke', 'Other']
+const DEFAULT_UNITS = ['inWC', 'Pa', 'PSI', 'psi', 'Bar', '°C', '°F', 'mA', '%']
+const ITEMS_PER_PAGE = 15
+
 export default function Instruments() {
   const [rows, setRows] = useState([])
   const [customers, setCustomers] = useState([])
   const [query, setQuery] = useState('')
   const [showIgnored, setShowIgnored] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [error, setError] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
+  
+  // Dynamic options for dropdowns - initialize with defaults
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES)
+  const [makes, setMakes] = useState(DEFAULT_MAKES)
+  const [units, setUnits] = useState(DEFAULT_UNITS)
 
-  // Fetch instruments and customers on mount
+  // Fetch instruments when query or filter changes
   useEffect(() => {
+    const fetchInstruments = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await instrumentsAPI.getAll(query, showIgnored ? true : null)
+        setRows(data)
+      } catch (err) {
+        setError('Failed to fetch instruments')
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
     fetchInstruments()
-    fetchCustomers()
   }, [query, showIgnored])
 
-  const fetchInstruments = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const data = await instrumentsAPI.getAll(query, showIgnored ? true : null)
-      setRows(data)
-    } catch (err) {
-      setError('Failed to fetch instruments')
-      console.error(err)
-    } finally {
-      setLoading(false)
+  // Fetch customers once on mount
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const data = await customersAPI.getAll()
+        setCustomers(data)
+      } catch (err) {
+        console.error('Failed to fetch customers:', err)
+      }
     }
-  }
-
-  const fetchCustomers = async () => {
-    try {
-      const data = await customersAPI.getAll()
-      setCustomers(data)
-    } catch (err) {
-      console.error('Failed to fetch customers:', err)
-    }
-  }
+    fetchCustomers()
+  }, [])
 
   const results = useMemo(() => {
     return rows
   }, [rows])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedResults = results.slice(startIndex, endIndex)
+
+  // Reset to page 1 when search query or filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, showIgnored])
 
   const openAdd = () => {
     setEditing(null)
@@ -88,7 +114,29 @@ export default function Instruments() {
 
   const openEdit = (row) => {
     setEditing(row)
-    setForm({ ...row })
+    setForm({
+      name: row.name || '',
+      serial: row.serial || '',
+      make: row.make || '',
+      model: row.model || '',
+      category: row.category || '',
+      customerId: row.customerId || '',
+      dueDate: row.dueDate || '',
+      ignored: row.ignored || false,
+      series: row.series || '',
+      rangeStart: row.rangeStart || '',
+      rangeEnd: row.rangeEnd || '',
+      rangeUnit: row.rangeUnit || '',
+      accuracy: row.accuracy || '',
+      accuracyType: row.accuracyType || '±',
+      resolution: row.resolution || '',
+      type: row.type || 'Analog',
+      instrumentId: row.instrumentId || '',
+      calibrationPoints: row.calibrationPoints || '',
+      readingAccuracy: row.readingAccuracy || '',
+      description: row.description || '',
+      calibrationPeriod: row.calibrationPeriod || '12',
+    })
     setModalOpen(true)
   }
 
@@ -161,10 +209,10 @@ export default function Instruments() {
 
       <DataTable
         rowKey={(r) => r.id}
-        data={results}
+        data={paginatedResults}
         emptyMessage={loading ? 'Loading...' : 'No instruments to show.'}
         columns={[
-          { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
+          { key: 'sr', header: 'Sr', render: (_, i) => startIndex + i + 1, className: 'text-ink-faint w-12' },
           { key: 'name', header: 'Instrument', className: 'font-medium' },
           { key: 'serial', header: 'Serial', className: 'text-ink-soft' },
           { key: 'make', header: 'Make', className: 'text-ink-soft' },
@@ -187,6 +235,63 @@ export default function Instruments() {
         ]}
       />
 
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
+          <div className="text-sm text-ink-soft">
+            Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
+            <span className="font-medium text-ink">{Math.min(endIndex, results.length)}</span> of{' '}
+            <span className="font-medium text-ink">{results.length}</span> instruments
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Previous
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                const showPage = 
+                  page === 1 || 
+                  page === totalPages || 
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                
+                if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
+                  return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                }
+                
+                if (!showPage) return null
+                
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      currentPage === page
+                        ? 'bg-brand-500 text-white'
+                        : 'border border-slate-300 text-ink hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit modal */}
       <Modal
         open={modalOpen}
@@ -206,47 +311,103 @@ export default function Instruments() {
               label="Name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Instrument Name"
+              placeholder="Name"
             />
             <div className="w-full">
               <label className="mb-1.5 block text-sm font-medium text-ink-soft">Category</label>
-              <select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-              >
-                <option value="">Select category…</option>
-                <option value="Pressure">Pressure</option>
-                <option value="Temperature">Temperature</option>
-                <option value="Flow">Flow</option>
-                <option value="Level">Level</option>
-                <option value="Other">Other</option>
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Select category…</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newCategory = prompt('Enter new category name:')
+                    if (newCategory && newCategory.trim()) {
+                      const trimmed = newCategory.trim()
+                      if (!categories.includes(trimmed)) {
+                        setCategories([...categories, trimmed])
+                      }
+                      setForm({ ...form, category: trimmed })
+                    }
+                  }}
+                  className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
+                  title="Add new category"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
             </div>
-            <FormInput
-              label="Serial Number"
-              value={form.serial}
-              onChange={(e) => setForm({ ...form, serial: e.target.value })}
-              placeholder="12"
-            />
+            <div className="w-full">
+              <label className="mb-1.5 block text-sm font-medium text-orange-500">Calibration period in month</label>
+              <div className="flex gap-2">
+                <select
+                  value={form.calibrationPeriod}
+                  onChange={(e) => setForm({ ...form, calibrationPeriod: e.target.value })}
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="3">3</option>
+                  <option value="6">6</option>
+                  <option value="12">12</option>
+                  <option value="24">24</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newPeriod = prompt('Enter calibration period in months:', '12')
+                    if (newPeriod && !isNaN(newPeriod)) {
+                      setForm({ ...form, calibrationPeriod: newPeriod })
+                    }
+                  }}
+                  className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
+                  title="Add custom period"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Make, Model, Series Row */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="w-full">
               <label className="mb-1.5 block text-sm font-medium text-ink-soft">Make</label>
-              <select
-                value={form.make}
-                onChange={(e) => setForm({ ...form, make: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-              >
-                <option value="">Select make…</option>
-                <option value="Dwyer">Dwyer</option>
-                <option value="Wika">Wika</option>
-                <option value="Ashcroft">Ashcroft</option>
-                <option value="Fluke">Fluke</option>
-                <option value="Other">Other</option>
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={form.make}
+                  onChange={(e) => setForm({ ...form, make: e.target.value })}
+                  className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Select make…</option>
+                  {makes.map((make) => (
+                    <option key={make} value={make}>{make}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newMake = prompt('Enter new make name:')
+                    if (newMake && newMake.trim()) {
+                      const trimmed = newMake.trim()
+                      if (!makes.includes(trimmed)) {
+                        setMakes([...makes, trimmed])
+                      }
+                      setForm({ ...form, make: trimmed })
+                    }
+                  }}
+                  className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
+                  title="Add new make"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
             </div>
             <FormInput
               label="Model"
@@ -280,20 +441,35 @@ export default function Instruments() {
               />
               <div className="w-full">
                 <label className="mb-1.5 block text-sm font-medium text-ink-soft">Unit</label>
-                <select
-                  value={form.rangeUnit}
-                  onChange={(e) => setForm({ ...form, rangeUnit: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-                >
-                  <option value="">Select unit…</option>
-                  <option value="Pa">Pa</option>
-                  <option value="PSI">PSI</option>
-                  <option value="Bar">Bar</option>
-                  <option value="°C">°C</option>
-                  <option value="°F">°F</option>
-                  <option value="mA">mA</option>
-                  <option value="%">%</option>
-                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={form.rangeUnit}
+                    onChange={(e) => setForm({ ...form, rangeUnit: e.target.value })}
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                  >
+                    <option value="">Select unit…</option>
+                    {units.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newUnit = prompt('Enter new unit:')
+                      if (newUnit && newUnit.trim()) {
+                        const trimmed = newUnit.trim()
+                        if (!units.includes(trimmed)) {
+                          setUnits([...units, trimmed])
+                        }
+                        setForm({ ...form, rangeUnit: trimmed })
+                      }
+                    }}
+                    className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
+                    title="Add new unit"
+                  >
+                    <Plus size={20} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -302,11 +478,11 @@ export default function Instruments() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="w-full">
               <label className="mb-1.5 block text-sm font-medium text-ink-soft">Accuracy</label>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <select
                   value={form.accuracyType}
                   onChange={(e) => setForm({ ...form, accuracyType: e.target.value })}
-                  className="w-20 rounded-xl border border-slate-200 bg-slate-50/80 px-2 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                  className="w-16 rounded-xl border border-slate-200 bg-slate-50/80 px-2 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
                 >
                   <option value="±">±</option>
                   <option value="+">+</option>
@@ -316,9 +492,10 @@ export default function Instruments() {
                   type="text"
                   value={form.accuracy}
                   onChange={(e) => setForm({ ...form, accuracy: e.target.value })}
-                  placeholder="5%"
+                  placeholder="± 5%"
                   className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
                 />
+                <span className="text-lg text-ink-soft font-medium">%</span>
               </div>
             </div>
             <FormInput

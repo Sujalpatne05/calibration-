@@ -16,6 +16,7 @@ const EMPTY = {
   reportNo: '',
   certificateNo: '',
 }
+const ITEMS_PER_PAGE = 15
 
 const fmtDate = (d) =>
   d
@@ -36,11 +37,30 @@ export default function Standards() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
+  const [instrumentSearch, setInstrumentSearch] = useState('')
+  const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
+  // Calculate pagination
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedResults = results.slice(startIndex, endIndex)
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query])
+
+  // Fetch standards when query changes
   useEffect(() => {
     fetchStandards()
-    fetchInstruments()
   }, [query])
+
+  // Fetch instruments once on mount
+  useEffect(() => {
+    fetchInstruments()
+  }, [])
 
   const fetchStandards = async () => {
     try {
@@ -73,7 +93,19 @@ export default function Standards() {
 
   const openEdit = (row) => {
     setEditing(row)
-    setForm({ ...row })
+    // Convert ISO date to yyyy-MM-dd format for date input
+    const dateValue = row.calibrationDate 
+      ? new Date(row.calibrationDate).toISOString().split('T')[0] 
+      : ''
+    
+    setForm({
+      instrumentId: row.instrumentId || '',
+      instrument: row.instrument || '',
+      calibrationDate: dateValue,
+      reportNo: row.reportNo || '',
+      certificateNo: row.certificateNo || '',
+    })
+    setInstrumentSearch(row.instrument ? `${row.instrument} - ${row.instrumentRef?.serial || ''} (${row.instrumentRef?.customer?.name || 'No Customer'})` : '')
     setModalOpen(true)
   }
 
@@ -93,11 +125,23 @@ export default function Standards() {
     if (!form.instrumentId || !form.certificateNo.trim()) return
     try {
       setLoading(true)
+      
       if (editing) {
-        const updated = await standardsAPI.update(editing.id, form)
+        // When updating, don't send instrumentId or instrument (they shouldn't change)
+        const payload = {
+          calibrationDate: form.calibrationDate,
+          reportNo: form.reportNo,
+          certificateNo: form.certificateNo,
+        }
+        const updated = await standardsAPI.update(editing.id, payload)
         setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
       } else {
-        const created = await standardsAPI.create(form)
+        // When creating, ensure instrumentId is a number
+        const payload = {
+          ...form,
+          instrumentId: parseInt(form.instrumentId)
+        }
+        const created = await standardsAPI.create(payload)
         setRows((r) => [created, ...r])
       }
       setModalOpen(false)
@@ -131,10 +175,10 @@ export default function Standards() {
 
       <DataTable
         rowKey={(r) => r.id}
-        data={results}
+        data={paginatedResults}
         emptyMessage={loading ? 'Loading...' : 'No standards match your search.'}
         columns={[
-          { key: 'sr', header: 'SR', render: (_, i) => i + 1, align: 'center', className: 'text-ink-faint w-12' },
+          { key: 'sr', header: 'SR', render: (_, i) => startIndex + i + 1, align: 'center', className: 'text-ink-faint w-12' },
           { key: 'instrument', header: 'Instrument', align: 'center', className: 'font-medium' },
           { key: 'instrumentId', header: 'Instrument Id', align: 'center', className: 'text-ink-soft' },
           { key: 'calibrationDate', header: 'Calibration Date', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
@@ -151,6 +195,63 @@ export default function Standards() {
         ]}
       />
 
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
+          <div className="text-sm text-ink-soft">
+            Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
+            <span className="font-medium text-ink">{Math.min(endIndex, results.length)}</span> of{' '}
+            <span className="font-medium text-ink">{results.length}</span> standards
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Previous
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                const showPage = 
+                  page === 1 || 
+                  page === totalPages || 
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                
+                if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
+                  return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                }
+                
+                if (!showPage) return null
+                
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      currentPage === page
+                        ? 'bg-brand-500 text-white'
+                        : 'border border-slate-300 text-ink hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit modal */}
       <Modal
         open={modalOpen}
@@ -165,29 +266,58 @@ export default function Standards() {
       >
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instrument</label>
+            <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instrument name</label>
             <div className="flex gap-2">
-              <select
-                value={form.instrumentId}
-                onChange={(e) => {
-                  const instrument = instruments.find((i) => i.id === parseInt(e.target.value))
-                  setForm({ ...form, instrumentId: parseInt(e.target.value), instrument: instrument?.name || '' })
-                }}
-                className="flex-1 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-              >
-                <option value="">Select instrument…</option>
-                {instruments.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={instrumentSearch}
+                  onChange={(e) => {
+                    setInstrumentSearch(e.target.value)
+                    setShowInstrumentDropdown(true)
+                  }}
+                  onFocus={() => setShowInstrumentDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowInstrumentDropdown(false), 200)}
+                  placeholder="Search instrument..."
+                  disabled={!!editing}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                {showInstrumentDropdown && (
+                  <div className="absolute z-50 w-full mt-1 max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
+                    {instruments
+                      .filter(i => 
+                        `${i.name} ${i.serial} ${i.customer?.name || ''}`.toLowerCase().includes(instrumentSearch.toLowerCase())
+                      )
+                      .map((i) => (
+                        <div
+                          key={i.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            setForm({ ...form, instrumentId: i.id, instrument: i.name })
+                            setInstrumentSearch(`${i.name} - ${i.serial} (${i.customer?.name || 'No Customer'})`)
+                            setShowInstrumentDropdown(false)
+                          }}
+                          className="px-4 py-3 cursor-pointer hover:bg-brand-50 border-b border-slate-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-ink">{i.name}</div>
+                          <div className="text-xs text-ink-soft">Serial: {i.serial} • {i.customer?.name || 'No Customer'}</div>
+                        </div>
+                      ))
+                    }
+                    {instruments.filter(i => 
+                      `${i.name} ${i.serial} ${i.customer?.name || ''}`.toLowerCase().includes(instrumentSearch.toLowerCase())
+                    ).length === 0 && (
+                      <div className="px-4 py-3 text-sm text-ink-faint">No instruments found</div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 className="flex h-[46px] w-[46px] items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600"
                 title="Add new instrument"
               >
-                <span className="text-2xl leading-none">+</span>
+                <Plus size={20} />
               </button>
             </div>
           </div>
@@ -212,13 +342,6 @@ export default function Standards() {
             value={form.reportNo}
             onChange={(e) => setForm({ ...form, reportNo: e.target.value })}
             placeholder="CAL-25100187/PR/02"
-          />
-
-          <FormInput
-            label="Instrument Id"
-            value={form.instrumentId}
-            onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
-            placeholder="Instrument Id"
           />
 
           <FormInput

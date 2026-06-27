@@ -60,6 +60,7 @@ model Instrument {
   calibrationPoints String?
   readingAccuracy String?
   description String?
+  calibrationPeriod String?
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -100,6 +101,7 @@ model Invoice {
   updatedAt       DateTime @updatedAt
   
   customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reports         Report[]
 }
 
 model Report {
@@ -109,6 +111,7 @@ model Report {
   tcNumber        String? @unique
   customerId      Int
   instrumentId    Int?
+  invoiceId       Int?    // Link to invoice for T&C certificate
   issueDate       DateTime @default(now())
   status          String  @default("draft")
   
@@ -161,6 +164,7 @@ model Report {
   
   customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   instrument      Instrument? @relation(fields: [instrumentId], references: [id], onDelete: SetNull)
+  invoice         Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 }
 
 model ActivityLog {

@@ -70,6 +70,7 @@ const T = (props) => {
   const customer_name = firstText(source.customer_name, source.customer?.name)
   const tc_number = firstText(source.tcNumber, source.tc_number, source.certificateNo)
   const po_number = firstText(source.poNumber, source.po_number, `PO-${tc_number || 'DRAFT'}`)
+  // For TC Date, prioritize tcDate (which should be the invoice date), then issueDate
   const tc_date = firstText(source.tc_date, formatDate(source.tcDate), formatDate(source.issueDate))
   const note = firstText(
     source.notes,

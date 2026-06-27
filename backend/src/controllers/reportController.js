@@ -415,7 +415,11 @@ export const getAllReports = async (req, res) => {
 
     const reports = await prisma.report.findMany({
       where,
-      include: { customer: true, instrument: true },
+      include: { 
+        customer: true, 
+        instrument: true,
+        invoice: true
+      },
       orderBy: { issueDate: 'desc' },
       take: limit
     });
@@ -433,7 +437,11 @@ export const getReportById = async (req, res) => {
 
     const report = await prisma.report.findUnique({
       where: { id: parseInt(id) },
-      include: { customer: true, instrument: true }
+      include: { 
+        customer: true, 
+        instrument: true,
+        invoice: true
+      }
     });
 
     if (!report) {
@@ -454,7 +462,11 @@ export const createReport = async (req, res) => {
 
     const report = await prisma.report.create({
       data,
-      include: { customer: true, instrument: true }
+      include: { 
+        customer: true, 
+        instrument: true,
+        invoice: true
+      }
     });
 
     logger.info(`Report created: ${report.id}`);
@@ -474,7 +486,11 @@ export const updateReport = async (req, res) => {
     const report = await prisma.report.update({
       where: { id: parseInt(id) },
       data,
-      include: { customer: true, instrument: true }
+      include: { 
+        customer: true, 
+        instrument: true,
+        invoice: true
+      }
     });
 
     logger.info(`Report updated: ${id}`);

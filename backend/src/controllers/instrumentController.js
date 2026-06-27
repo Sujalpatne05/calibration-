@@ -37,8 +37,25 @@ export const getAllInstruments = async (req, res) => {
 
 export const createInstrument = async (req, res) => {
   try {
+    // Convert empty strings to null for optional fields
+    const data = { ...req.validated }
+    if (data.dueDate === '' || data.dueDate === null) data.dueDate = undefined
+    if (data.series === '') data.series = null
+    if (data.rangeStart === '') data.rangeStart = null
+    if (data.rangeEnd === '') data.rangeEnd = null
+    if (data.rangeUnit === '') data.rangeUnit = null
+    if (data.accuracy === '') data.accuracy = null
+    if (data.accuracyType === '') data.accuracyType = null
+    if (data.resolution === '') data.resolution = null
+    if (data.type === '') data.type = null
+    if (data.instrumentId === '') data.instrumentId = null
+    if (data.calibrationPoints === '') data.calibrationPoints = null
+    if (data.readingAccuracy === '') data.readingAccuracy = null
+    if (data.description === '') data.description = null
+    if (data.calibrationPeriod === '') data.calibrationPeriod = null
+
     const instrument = await prisma.instrument.create({
-      data: req.validated,
+      data,
       include: { customer: true }
     });
 
@@ -54,9 +71,26 @@ export const updateInstrument = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Convert empty strings to null for optional fields
+    const data = { ...req.validated }
+    if (data.dueDate === '' || data.dueDate === null) data.dueDate = undefined
+    if (data.series === '') data.series = null
+    if (data.rangeStart === '') data.rangeStart = null
+    if (data.rangeEnd === '') data.rangeEnd = null
+    if (data.rangeUnit === '') data.rangeUnit = null
+    if (data.accuracy === '') data.accuracy = null
+    if (data.accuracyType === '') data.accuracyType = null
+    if (data.resolution === '') data.resolution = null
+    if (data.type === '') data.type = null
+    if (data.instrumentId === '') data.instrumentId = null
+    if (data.calibrationPoints === '') data.calibrationPoints = null
+    if (data.readingAccuracy === '') data.readingAccuracy = null
+    if (data.description === '') data.description = null
+    if (data.calibrationPeriod === '') data.calibrationPeriod = null
+
     const instrument = await prisma.instrument.update({
       where: { id: parseInt(id) },
-      data: req.validated,
+      data,
       include: { customer: true }
     });
 

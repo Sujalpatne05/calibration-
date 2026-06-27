@@ -1,5 +1,7 @@
 import express from 'express';
 import { authenticate } from '../middleware/auth.js';
+import { validateRequest } from '../middleware/validation.js';
+import { createStandardSchema, updateStandardSchema } from '../schemas/standardSchema.js';
 import { getAllStandards, createStandard, updateStandard, deleteStandard } from '../controllers/standardController.js';
 
 const router = express.Router();
@@ -51,7 +53,7 @@ router.get('/', authenticate, getAllStandards);
  *       201:
  *         description: Standard created
  */
-router.post('/', authenticate, createStandard);
+router.post('/', authenticate, validateRequest(createStandardSchema), createStandard);
 
 /**
  * @swagger
@@ -75,7 +77,7 @@ router.post('/', authenticate, createStandard);
  *       200:
  *         description: Standard updated
  */
-router.put('/:id', authenticate, updateStandard);
+router.put('/:id', authenticate, validateRequest(updateStandardSchema), updateStandard);
 
 /**
  * @swagger

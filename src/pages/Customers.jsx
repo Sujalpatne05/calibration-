@@ -11,6 +11,7 @@ import { useSearch } from '../hooks/useSearch'
 import { customersAPI, invoicesAPI } from '../services/api'
 
 const EMPTY = { name: '', address: '', email: '', phone: '' }
+const ITEMS_PER_PAGE = 15
 
 export default function Customers() {
   const navigate = useNavigate()
@@ -24,17 +25,29 @@ export default function Customers() {
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [customerInvoices, setCustomerInvoices] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // Fetch customers on mount and when search changes
+  // Calculate pagination
+  const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedResults = results.slice(startIndex, endIndex)
+
+  // Reset to page 1 when search query changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query])
+
+  // Fetch customers on mount only
   useEffect(() => {
     fetchCustomers()
-  }, [query])
+  }, [])
 
   const fetchCustomers = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await customersAPI.getAll(query)
+      const data = await customersAPI.getAll()
       setRows(data)
     } catch (err) {
       setError('Failed to fetch customers')
@@ -52,7 +65,12 @@ export default function Customers() {
 
   const openEdit = (row) => {
     setEditing(row)
-    setForm({ name: row.name, address: row.address, email: row.email, phone: row.phone })
+    setForm({ 
+      name: row.name || '', 
+      address: row.address || '', 
+      email: row.email || '', 
+      phone: row.phone || '' 
+    })
     setModalOpen(true)
   }
 
@@ -132,10 +150,10 @@ export default function Customers() {
 
       <DataTable
         rowKey={(r) => r.id}
-        data={results}
+        data={paginatedResults}
         emptyMessage={loading ? 'Loading...' : 'No customers match your search.'}
         columns={[
-          { key: 'sr', header: 'Sr', render: (_, i) => i + 1, className: 'text-ink-faint w-12' },
+          { key: 'sr', header: 'Sr', render: (_, i) => startIndex + i + 1, className: 'text-ink-faint w-12' },
           { key: 'name', header: 'Name', className: 'font-medium max-w-[16rem]' },
           {
             key: 'address',
@@ -176,6 +194,65 @@ export default function Customers() {
           },
         ]}
       />
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
+          <div className="text-sm text-ink-soft">
+            Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
+            <span className="font-medium text-ink">{Math.min(endIndex, results.length)}</span> of{' '}
+            <span className="font-medium text-ink">{results.length}</span> customers
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Previous
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Show first page, last page, current page, and pages around current
+                const showPage = 
+                  page === 1 || 
+                  page === totalPages || 
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                
+                // Show ellipsis
+                if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
+                  return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                }
+                
+                if (!showPage) return null
+                
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      currentPage === page
+                        ? 'bg-brand-500 text-white'
+                        : 'border border-slate-300 text-ink hover:bg-slate-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add / Edit modal */}
       <Modal

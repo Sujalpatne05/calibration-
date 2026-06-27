@@ -535,7 +535,12 @@ export default function Report() {
     customer_contact: selectedReport.customer?.phone,
     po_number: selectedReport.poNumber,
     tc_number: selectedReport.tcNumber,
-    tc_date: selectedReport.tcDate ? new Date(selectedReport.tcDate).toLocaleDateString('en-GB') : '',
+    // Use invoice date if available, otherwise use tcDate
+    tc_date: selectedReport.invoice?.issueDate 
+      ? new Date(selectedReport.invoice.issueDate).toLocaleDateString('en-GB')
+      : selectedReport.tcDate 
+      ? new Date(selectedReport.tcDate).toLocaleDateString('en-GB') 
+      : '',
     items: selectedReport.items ? JSON.parse(selectedReport.items) : [],
     note: selectedReport.notes,
     legal: selectedReport.legalDisclaimer,

@@ -15,6 +15,7 @@ const fmtDate = (value) => {
 }
 
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
+const ITEMS_PER_PAGE = 15
 
 const downloadTextFile = (filename, content, type) => {
   const blob = new Blob([content], { type })
@@ -34,6 +35,18 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Calculate pagination
+  const totalPages = Math.ceil(invoices.length / ITEMS_PER_PAGE)
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedInvoices = invoices.slice(startIndex, endIndex)
+
+  // Reset to page 1 when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [query, applied])
 
   // Load search query from URL on mount
   useEffect(() => {
@@ -181,10 +194,13 @@ export default function Invoices() {
       <div className="mt-5 overflow-hidden border-t border-slate-100">
         <DataTable
           rowKey={(r) => r.id}
-          data={invoices}
+          data={paginatedInvoices}
           emptyMessage={loading ? 'Loading...' : 'No invoices found.'}
           columns={[
             {
+              key: 'sr',
+              header: '#',
+              render: (_, i) => startIndex + i + 1,
               key: 'sr',
               header: 'Sr',
               render: (_, i) => i + 1,
@@ -266,6 +282,63 @@ export default function Invoices() {
             },
           ]}
         />
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
+            <div className="text-sm text-ink-soft">
+              Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
+              <span className="font-medium text-ink">{Math.min(endIndex, invoices.length)}</span> of{' '}
+              <span className="font-medium text-ink">{invoices.length}</span> invoices
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Previous
+              </button>
+              
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  const showPage = 
+                    page === 1 || 
+                    page === totalPages || 
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  
+                  if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
+                    return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                  }
+                  
+                  if (!showPage) return null
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        currentPage === page
+                          ? 'bg-brand-500 text-white'
+                          : 'border border-slate-300 text-ink hover:bg-slate-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
