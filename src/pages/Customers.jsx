@@ -181,10 +181,10 @@ export default function Customers() {
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editing ? 'Edit Customer' : 'Add Customer'}
+        title={editing ? 'Update Customer' : 'Add Customer'}
         footer={
           <Button className="w-full" onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? 'Saving...' : editing ? 'Update' : 'Save'}
           </Button>
         }
       >

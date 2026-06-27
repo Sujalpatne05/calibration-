@@ -34,9 +34,9 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
 
       {/* Panel */}
       <div
-        className={`relative w-full ${maxWidth} animate-scale-in rounded-2xl bg-white p-6 shadow-soft`}
+        className={`relative w-full ${maxWidth} animate-scale-in rounded-2xl bg-white shadow-soft max-h-[90vh] flex flex-col`}
       >
-        <div className="mb-5 flex items-start justify-between">
+        <div className="flex items-start justify-between p-6 pb-4 flex-shrink-0">
           <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
           <button
             onClick={onClose}
@@ -47,9 +47,11 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
           </button>
         </div>
 
-        <div className="space-y-4">{children}</div>
+        <div className="overflow-y-auto px-6 pb-6 flex-1">
+          <div className="space-y-4">{children}</div>
+        </div>
 
-        {footer && <div className="mt-6">{footer}</div>}
+        {footer && <div className="p-6 pt-0 flex-shrink-0">{footer}</div>}
       </div>
     </div>
   )

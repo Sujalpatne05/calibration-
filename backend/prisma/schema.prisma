@@ -46,6 +46,21 @@ model Instrument {
   customerId Int
   dueDate   DateTime?
   ignored   Boolean @default(false)
+  
+  // Additional instrument details
+  series    String?
+  rangeStart String?
+  rangeEnd  String?
+  rangeUnit String?
+  accuracy  String?
+  accuracyType String?
+  resolution String?
+  type      String?
+  instrumentId String?
+  calibrationPoints String?
+  readingAccuracy String?
+  description String?
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
