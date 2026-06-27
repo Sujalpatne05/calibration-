@@ -97,17 +97,17 @@ input[type='date']::-webkit-calendar-picker-indicator {
 /* Header */
 .cc-letterhead {
   display: grid;
-  grid-template-columns: 56px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 110px 1fr;
+  gap: 20px;
   align-items: center;
-  padding-bottom: 5px;
-  border-bottom: 1.5px solid var(--cc-blue);
+  padding: 20px 0 16px;
+  border-bottom: 2px solid var(--cc-blue);
 }
-.cc-logo { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; }
-.cc-logo svg { width: 56px; height: 56px; }
-.cc-brand { display: flex; flex-direction: column; gap: 2px; }
-.cc-co-name { font-size: 12pt; font-weight: 700; color: var(--cc-blue); line-height: 1.05; letter-spacing: 0; text-transform: uppercase; }
-.cc-co-sub { font-size: 7.4pt; color: var(--cc-blue2); font-weight: 500; margin-top: 1px; }
+.cc-logo { width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; }
+.cc-logo svg { width: 110px; height: 110px; }
+.cc-brand { display: flex; flex-direction: column; gap: 4px; }
+.cc-co-name { font-size: 16pt; font-weight: 700; color: var(--cc-blue); line-height: 1.1; letter-spacing: 0.2px; text-transform: uppercase; white-space: nowrap; }
+.cc-co-sub { font-size: 11pt; color: var(--cc-blue2); font-weight: 600; margin-top: 2px; }
 .cc-head-meta { text-align: right; font-size: 6.8pt; color: var(--cc-muted); line-height: 1.25; }
 .cc-meta-label { color: var(--cc-blue); font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; font-size: 6.2pt; }
 .cc-meta-value { font-family: var(--cc-font-mono); font-size: 7.2pt; color: var(--cc-ink); font-weight: 600; }

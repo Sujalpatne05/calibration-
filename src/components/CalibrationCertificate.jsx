@@ -578,22 +578,11 @@ const C = (props) => {
         </div>
         <div className="cc-co-sub">An ISO 9001:2015 Certified Company</div>
       </div>
-      <div className="cc-head-meta">
-        <div className="cc-meta-label">Certificate No.</div>
-        <div className="cc-meta-value">{certificate_no}</div>
-        <div className="cc-meta-label" style={{ marginTop: 4 }}>
-          Page
-        </div>
-        <div className="cc-meta-value">1 of 1</div>
-      </div>
     </header>
     <div className="cc-head-rule" />
 
     {/* Title */}
     <div className="cc-title-block">
-      <div className="cc-eyebrow">
-        Measurement &middot; Traceability &middot; Assurance
-      </div>
       <h1 className="cc-title">Calibration Certificate</h1>
       <div className="cc-title-ornament">
         <span />
@@ -611,10 +600,6 @@ const C = (props) => {
           <span className="cc-value">{certificate_no}</span>
         </div>
         <div className="cc-info-cell">
-          <span className="cc-label">ULR / Reference No.</span>
-          <span className="cc-value">{ulr_no}</span>
-        </div>
-        <div className="cc-info-cell">
           <span className="cc-label">Date of Calibration</span>
           <span className="cc-value">{calibration_date}</span>
         </div>
@@ -626,12 +611,6 @@ const C = (props) => {
           <span className="cc-label">Calibration Due Date</span>
           <span className="cc-value">{due_date}</span>
         </div>
-        <div className="cc-info-cell">
-          <span className="cc-label">Calibration Status</span>
-          <span className="cc-value cc-status-value">
-            <span className="cc-pill cc-pill-pass">{status}</span>
-          </span>
-        </div>
       </div>
     </section>
 
@@ -642,7 +621,7 @@ const C = (props) => {
       </div>
       <div className="cc-customer-card">
         <div className="cc-block">
-          <h3 className="cc-block-h3">Issued To</h3>
+          <h3 className="cc-block-h3">Customer Details</h3>
           <div className="cc-name">{customer_name}</div>
           <div className="cc-addr">{customer_address}</div>
           <div className="cc-meta">
@@ -655,17 +634,11 @@ const C = (props) => {
           </div>
         </div>
         <div className="cc-block">
-          <h3 className="cc-block-h3">Calibration Performed</h3>
+          <h3 className="cc-block-h3">Calibrated at</h3>
           <div className="cc-name">{calibration_location}</div>
           <div className="cc-addr">{calibration_address}</div>
-          <div className="cc-meta">
-            <div>
-              <strong>Method / Procedure:</strong> {procedure_ref}
-            </div>
-            <div>
-              <strong>SRF No.:</strong> {srf_no}
-            </div>
-          </div>
+          <h3 className="cc-block-h3" style={{ marginTop: 8 }}>Condition on Receipt</h3>
+          <div className="cc-name">{condition_on_receipt}</div>
         </div>
       </div>
     </section>
@@ -673,7 +646,7 @@ const C = (props) => {
     {/* 3 — Instrument (UUC) */}
     <section className="cc-section">
       <div className="cc-section-title">
-        Instrument Under Calibration (UUC)
+        Details of Test Instrument
       </div>
       <div className="cc-info-grid cc-cols-3">
         <div className="cc-info-cell">
@@ -709,23 +682,21 @@ const C = (props) => {
           <span className="cc-value">{instrument_tag}</span>
         </div>
         <div className="cc-info-cell">
-          <span className="cc-label">Condition on Receipt</span>
-          <span className="cc-value">{condition_on_receipt}</span>
+          <span className="cc-label">Location</span>
+          <span className="cc-value">NA</span>
         </div>
       </div>
     </section>
 
     {/* 4 — Reference Standards */}
     <section className="cc-section">
-      <div className="cc-section-title">Reference Standards Used</div>
+      <div className="cc-section-title">Details of Standard Used</div>
       <table className="cc-tbl cc-tbl-compact">
         <thead>
           <tr>
             <th className="cc-center">#</th>
             <th>Standard / Master Equipment</th>
-            <th>Make &amp; Model</th>
             <th>Serial / ID No.</th>
-            <th>Range</th>
             <th>Traceability / Cert. No.</th>
             <th>Valid Upto</th>
           </tr>
@@ -735,9 +706,7 @@ const C = (props) => {
             <tr key={i}>
               <td className="cc-center">{i + 1}</td>
               <td>{standardText(s, 'name', 'instrument')}</td>
-              <td>{standardText(s, 'make', 'model')}</td>
               <td>{standardText(s, 'serial', 'serialNo', 'id')}</td>
-              <td>{standardText(s, 'range')}</td>
               <td>{standardText(s, 'cert', 'certificateNo', 'reportNo')}</td>
               <td className="cc-center">
                 {standardText(s, 'valid', 'certExpiry', 'validUpto')}
@@ -755,7 +724,7 @@ const C = (props) => {
     {/* 5 — Environmental Conditions */}
     <section className="cc-section">
       <div className="cc-section-title">Environmental Conditions</div>
-      <div className="cc-info-grid cc-cols-3">
+      <div className="cc-info-grid cc-cols-2">
         <div className="cc-info-cell">
           <span className="cc-label">Ambient Temperature</span>
           <span className="cc-value">
@@ -766,10 +735,7 @@ const C = (props) => {
           <span className="cc-label">Relative Humidity</span>
           <span className="cc-value">{env_humidity} % RH</span>
         </div>
-        <div className="cc-info-cell">
-          <span className="cc-label">Atmospheric Pressure</span>
-          <span className="cc-value">{env_pressure} mbar</span>
-        </div>
+
       </div>
     </section>
 
@@ -788,11 +754,7 @@ const C = (props) => {
           </div>
         ))}
       </div>
-      <div className="cc-note-italic">
-        Mean, corresponding value, and error are calculated from the recorded
-        up/down readings and the calibrated range where applicable. The
-        reported expanded uncertainty is stated with coverage factor k = 2.
-      </div>
+
     </section>
 
     {/* 7 — Remarks */}
@@ -803,10 +765,7 @@ const C = (props) => {
           The results stated in this certificate relate only to the item
           calibrated as identified above.
         </li>
-        <li>
-          This certificate shall not be reproduced, except in full, without
-          the written approval of SANC.
-        </li>
+
         <li>
           The due date for next calibration is assigned based on usage,
           manufacturer recommendation, and customer input.
@@ -815,7 +774,7 @@ const C = (props) => {
           All observations were taken under the environmental conditions
           reported in Section&nbsp;5.
         </li>
-        <li>{custom_remark}</li>
+
       </ol>
     </section>
 
@@ -906,3 +865,9 @@ const C = (props) => {
 }
 
 export default C
+
+
+
+
+
+
