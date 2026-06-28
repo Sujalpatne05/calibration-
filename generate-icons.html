@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate PWA Icons</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .container {
+            border: 2px dashed #0d87eb;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+        }
+        h1 {
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #64748b;
+            margin-bottom: 30px;
+        }
+        input {
+            display: none;
+        }
+        label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #0d87eb 0%, #a855f7 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        label:hover {
+            transform: scale(1.05);
+        }
+        .preview {
+            margin-top: 30px;
+            display: none;
+        }
+        .icon-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .download-btn {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #0d87eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .download-btn:hover {
+            background: #0069c9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 PWA Icon Generator</h1>
+        <p>Upload your SANC logo to generate PWA icons</p>
+        
+        <label for="logoInput">
+            Choose Logo Image
+        </label>
+        <input type="file" id="logoInput" accept="image/*">
+        
+        <div class="preview" id="preview">
+            <h3>Generated Icons:</h3>
+            <div class="icon-preview">
+                <div>192x192</div>
+                <canvas id="canvas192" width="192" height="192"></canvas>
+                <br>
+                <button class="download-btn" onclick="download('canvas192', 'pwa-192x192.png')">Download</button>
+            </div>
+            <div class="icon-preview">
+                <div>512x512</div>
+                <canvas id="canvas512" width="512" height="512"></canvas>
+                <br>
+                <button class="download-btn" onclick="download('canvas512', 'pwa-512x512.png')">Download</button>
+            </div>
+            <div class="icon-preview">
+                <div>180x180</div>
+                <canvas id="canvas180" width="180" height="180"></canvas>
+                <br>
+                <button class="download-btn" onclick="download('canvas180', 'pwa-180x180.png')">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const logoInput = document.getElementById('logoInput');
+        const preview = document.getElementById('preview');
+
+        logoInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    generateIcons(img);
+                    preview.style.display = 'block';
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function generateIcons(img) {
+            const sizes = [
+                { canvas: 'canvas192', size: 192 },
+                { canvas: 'canvas512', size: 512 },
+                { canvas: 'canvas180', size: 180 }
+            ];
+
+            sizes.forEach(({ canvas, size }) => {
+                const ctx = document.getElementById(canvas).getContext('2d');
+                
+                // White background
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, size, size);
+
+                // Calculate logo size (80% of canvas)
+                const logoSize = size * 0.8;
+                const x = (size - logoSize) / 2;
+                const y = (size - logoSize) / 2;
+
+                // Draw logo centered
+                ctx.drawImage(img, x, y, logoSize, logoSize);
+            });
+        }
+
+        function download(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
