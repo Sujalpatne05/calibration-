@@ -547,14 +547,14 @@ export default function Report() {
   } : null
 
   return (
-    <div className="report-page grid min-h-screen gap-6 lg:grid-cols-3">
+    <div className="report-page w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 lg:grid lg:min-h-screen lg:gap-6 lg:grid-cols-3 lg:space-y-0">
       {/* Sidebar - Search */}
-      <div className="report-search-panel lg:col-span-1">
-        <div className="sticky top-0 rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
-          <h2 className="mb-4 font-display text-lg font-semibold text-ink">Search Reports</h2>
+      <div className="report-search-panel lg:col-span-1 w-full max-w-full">
+        <div className="sticky top-0 rounded-xl sm:rounded-2xl bg-white p-4 sm:p-5 lg:p-6 shadow-card ring-1 ring-slate-100 overflow-hidden">
+          <h2 className="mb-3 sm:mb-4 font-display text-base sm:text-lg font-semibold text-ink">Search Reports</h2>
 
           {/* Tabs */}
-          <div className="mb-4 flex gap-2">
+          <div className="mb-3 sm:mb-4 flex gap-1.5 sm:gap-2 overflow-x-auto">
             {TABS.map((t) => {
               const Icon = t.icon
               return (
@@ -564,29 +564,29 @@ export default function Report() {
                     setTab(t.id)
                     setSelectedReport(null)
                   }}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                  className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 py-2 sm:px-3 text-xs sm:text-sm font-medium transition whitespace-nowrap ${
                     tab === t.id
                       ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
                       : 'bg-slate-50 text-ink-faint hover:bg-slate-100'
                   }`}
                 >
-                  <Icon size={16} />
-                  <span className="hidden sm:inline">{t.label}</span>
+                  <Icon size={14} className="sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">{t.label}</span>
                 </button>
               )
             })}
           </div>
 
-          <div className="mb-4 rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-600">
+          <div className="mb-3 sm:mb-4 rounded-lg sm:rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-2.5 sm:p-3">
+            <p className="mb-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-brand-600">
               Dummy API Test
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2">
               {tab === 'calibration' ? (
                 <select
                   value={dummyCase}
                   onChange={(e) => setDummyCase(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
                 >
                   {DUMMY_REPORT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -595,11 +595,11 @@ export default function Report() {
                   ))}
                 </select>
               ) : (
-                <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-ink">
+                <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-ink truncate">
                   Test &amp; Conformance
                 </div>
               )}
-              <Button type="button" size="sm" onClick={loadDummyReport} disabled={loading}>
+              <Button type="button" size="sm" onClick={loadDummyReport} disabled={loading} className="whitespace-nowrap">
                 Load
               </Button>
             </div>
@@ -607,37 +607,37 @@ export default function Report() {
 
           {/* Search */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search size={16} className="text-ink-faint" />
+            <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 sm:pl-3">
+              <Search size={14} className="text-ink-faint sm:w-4 sm:h-4" />
             </div>
             <input
               type="text"
-              placeholder="Certificate no, TC no, customer..."
+              placeholder="Certificate no, TC no..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value)
                 setShowSearchResults(true)
               }}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2.5 text-sm outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+              className="w-full rounded-lg sm:rounded-xl border border-slate-200 bg-slate-50 pl-8 sm:pl-9 pr-2.5 sm:pr-3 py-2 sm:py-2.5 text-xs sm:text-sm outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
             />
           </div>
 
           {/* Search Results */}
           {showSearchResults && searchQuery && (
-            <div className="mt-3 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <div className="mt-2.5 sm:mt-3 max-h-64 space-y-1.5 sm:space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:p-2">
               {loading ? (
-                <div className="py-2 text-center text-sm text-ink-faint">Loading...</div>
+                <div className="py-2 text-center text-xs sm:text-sm text-ink-faint">Loading...</div>
               ) : filteredReports.length === 0 ? (
-                <div className="py-2 text-center text-sm text-ink-faint">No reports found</div>
+                <div className="py-2 text-center text-xs sm:text-sm text-ink-faint">No reports found</div>
               ) : (
                 filteredReports.map((report) => (
                   <button
                     key={report.id}
                     onClick={() => handleSelectReport(report)}
-                    className="w-full rounded-lg bg-white p-2 text-left text-sm hover:bg-slate-100"
+                    className="w-full rounded-lg bg-white p-1.5 sm:p-2 text-left text-xs sm:text-sm hover:bg-slate-100"
                   >
-                    <p className="font-medium text-ink">{report.certificateNo || report.tcNumber}</p>
-                    <p className="text-xs text-ink-faint">{report.customer?.name}</p>
+                    <p className="font-medium text-ink truncate">{report.certificateNo || report.tcNumber}</p>
+                    <p className="text-[10px] sm:text-xs text-ink-faint truncate">{report.customer?.name}</p>
                   </button>
                 ))
               )}
@@ -646,21 +646,21 @@ export default function Report() {
 
           {/* Recent Reports */}
           {!showSearchResults && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs font-medium text-ink-faint">Recent</p>
+            <div className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2">
+              <p className="text-[10px] sm:text-xs font-medium text-ink-faint">Recent</p>
               {loading ? (
-                <div className="text-sm text-ink-faint">Loading...</div>
+                <div className="text-xs sm:text-sm text-ink-faint">Loading...</div>
               ) : reports.length === 0 ? (
-                <div className="text-sm text-ink-faint">No reports available</div>
+                <div className="text-xs sm:text-sm text-ink-faint">No reports available</div>
               ) : (
                 reports.slice(0, 5).map((report) => (
                   <button
                     key={report.id}
                     onClick={() => handleSelectReport(report)}
-                    className="w-full rounded-lg bg-slate-50 p-2 text-left text-sm hover:bg-slate-100"
+                    className="w-full rounded-lg bg-slate-50 p-1.5 sm:p-2 text-left text-xs sm:text-sm hover:bg-slate-100"
                   >
-                    <p className="font-medium text-ink">{report.certificateNo || report.tcNumber}</p>
-                    <p className="text-xs text-ink-faint">{report.customer?.name}</p>
+                    <p className="font-medium text-ink truncate">{report.certificateNo || report.tcNumber}</p>
+                    <p className="text-[10px] sm:text-xs text-ink-faint truncate">{report.customer?.name}</p>
                   </button>
                 ))
               )}
@@ -670,40 +670,40 @@ export default function Report() {
       </div>
 
       {/* Main Content - Certificate Display */}
-      <div className="report-main-panel lg:col-span-2">
+      <div className="report-main-panel lg:col-span-2 w-full max-w-full overflow-hidden">
         {selectedReport ? (
-          <div className="report-card rounded-2xl bg-white shadow-card ring-1 ring-slate-100">
+          <div className="report-card rounded-xl sm:rounded-2xl bg-white shadow-card ring-1 ring-slate-100 overflow-hidden">
             {/* Toolbar */}
-            <div className="report-toolbar flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <h2 className="font-display text-lg font-semibold text-ink">
+            <div className="report-toolbar flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200 px-3 py-3 sm:px-4 sm:py-4 lg:px-6">
+              <div className="min-w-0 flex-1">
+                <h2 className="font-display text-sm sm:text-base lg:text-lg font-semibold text-ink truncate">
                   {selectedReport.certificateNo || selectedReport.tcNumber}
                 </h2>
-                <p className="text-sm text-ink-faint">{selectedReport.customer?.name}</p>
+                <p className="text-xs sm:text-sm text-ink-faint truncate">{selectedReport.customer?.name}</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2 flex-wrap flex-shrink-0">
                 {tab === 'calibration' ? (
-                  <Button onClick={openReadingsEditor} variant="secondary" size="sm">
-                    <PencilLine size={16} /> Readings
+                  <Button onClick={openReadingsEditor} variant="secondary" size="sm" className="text-xs sm:text-sm">
+                    <PencilLine size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Readings</span>
                   </Button>
                 ) : null}
-                <Button onClick={printReport} variant="secondary" size="sm">
-                  <Printer size={16} /> Print
+                <Button onClick={printReport} variant="secondary" size="sm" className="text-xs sm:text-sm">
+                  <Printer size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Print</span>
                 </Button>
-                <Button onClick={exportPdf} variant="secondary" size="sm">
-                  <Download size={16} /> PDF
+                <Button onClick={exportPdf} variant="secondary" size="sm" className="text-xs sm:text-sm">
+                  <Download size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">PDF</span>
                 </Button>
                 <button
                   onClick={handleClearSelection}
-                  className="rounded-lg p-2 hover:bg-slate-100"
+                  className="rounded-lg p-1.5 sm:p-2 hover:bg-slate-100"
                 >
-                  <X size={20} />
+                  <X size={18} className="sm:w-5 sm:h-5" />
                 </button>
               </div>
             </div>
 
             {/* Certificate */}
-            <div className="report-print-area overflow-auto p-6" ref={printRef}>
+            <div className="report-print-area overflow-x-auto p-0 sm:p-4 lg:p-6" ref={printRef}>
               {tab === 'calibration' && certificateData ? (
                 <CalibrationCertificate data={certificateData} />
               ) : tab === 'test' && certificateData ? (

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Download, FileArchive, FolderClosed, Search, Tag } from 'lucide-react'
+import { Calendar, Download, FileArchive, FolderClosed, Search, Tag, X, RefreshCw } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import Button from '../components/Button'
+import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
 import { invoicesAPI } from '../services/api'
 
@@ -15,7 +16,7 @@ const fmtDate = (value) => {
 }
 
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE = 10
 
 const downloadTextFile = (filename, content, type) => {
   const blob = new Blob([content], { type })
@@ -36,6 +37,8 @@ export default function Invoices() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [certificateModalOpen, setCertificateModalOpen] = useState(false)
+  const [selectedInvoice, setSelectedInvoice] = useState(null)
 
   // Calculate pagination
   const totalPages = Math.ceil(invoices.length / ITEMS_PER_PAGE)
@@ -101,8 +104,9 @@ export default function Invoices() {
   }
 
   const openReport = (row) => {
-    const search = row.invoiceNumber || row.customer?.name || ''
-    navigate(`/report?search=${encodeURIComponent(search)}`)
+    // Open modal instead of navigating
+    setSelectedInvoice(row)
+    setCertificateModalOpen(true)
   }
 
   const downloadLabelCsv = (row) => {
@@ -241,7 +245,6 @@ export default function Invoices() {
                   title={`Open report search for ${row.invoiceNumber}`}
                 >
                   <FolderClosed size={26} className="text-amber-400" />
-                  <StatusBadge status={row.status} />
                 </button>
               ),
             },
@@ -253,9 +256,9 @@ export default function Invoices() {
               render: (row) => (
                 <button
                   type="button"
-                  onClick={() => openReport(row)}
-                  className="inline-flex rounded-lg p-2 text-ink transition hover:bg-slate-100"
-                  title={`Open report for ${row.invoiceNumber}`}
+                  disabled
+                  className="inline-flex rounded-lg p-2 text-ink-faint transition cursor-not-allowed opacity-50"
+                  title="Archive function is disabled"
                 >
                   <FileArchive size={26} />
                 </button>
@@ -285,17 +288,17 @@ export default function Invoices() {
 
         {/* Pagination Controls */}
         {totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
-            <div className="text-sm text-ink-soft">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-4">
+            <div className="text-xs sm:text-sm text-ink-soft text-center sm:text-left">
               Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
               <span className="font-medium text-ink">{Math.min(endIndex, invoices.length)}</span> of{' '}
               <span className="font-medium text-ink">{invoices.length}</span> invoices
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                className="rounded-lg border border-slate-300 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 Previous
               </button>
@@ -308,7 +311,7 @@ export default function Invoices() {
                     (page >= currentPage - 1 && page <= currentPage + 1)
                   
                   if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
-                    return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                    return <span key={page} className="px-1 sm:px-2 py-1.5 sm:py-2 text-ink-faint text-xs sm:text-sm">...</span>
                   }
                   
                   if (!showPage) return null
@@ -317,7 +320,7 @@ export default function Invoices() {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      className={`min-w-[2rem] sm:min-w-[2.5rem] rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${
                         currentPage === page
                           ? 'bg-brand-500 text-white'
                           : 'border border-slate-300 text-ink hover:bg-slate-50'
@@ -332,7 +335,7 @@ export default function Invoices() {
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                className="rounded-lg border border-slate-300 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
               >
                 Next
               </button>
@@ -340,6 +343,64 @@ export default function Invoices() {
           </div>
         )}
       </div>
+
+      {/* Certificate Status Modal */}
+      <Modal
+        open={certificateModalOpen}
+        onClose={() => {
+          setCertificateModalOpen(false)
+          setSelectedInvoice(null)
+        }}
+        title="Certificate Status"
+      >
+        {selectedInvoice && (
+          <div className="space-y-6">
+            <div>
+              <p className="text-sm font-semibold text-ink-soft">Items: 1</p>
+            </div>
+
+            {/* Tabs */}
+            <div className="grid grid-cols-3 gap-4 border-b border-slate-200 pb-4">
+              <div className="text-center">
+                <p className="text-sm font-semibold text-slate-400">Instrument</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-slate-400">Calibration Certificate</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-slate-400">Testing Certificate</p>
+              </div>
+            </div>
+
+            {/* Status Display */}
+            <div className="grid grid-cols-3 gap-4 py-8 text-center">
+              <div>
+                <p className="text-lg font-bold text-slate-600">0/1</p>
+                <p className="text-sm text-slate-500 mt-2">Pending</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-slate-600">-</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-slate-600">Not Done</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-slate-200">
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled
+                className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }

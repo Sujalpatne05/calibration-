@@ -417,8 +417,7 @@ export const getAllReports = async (req, res) => {
       where,
       include: { 
         customer: true, 
-        instrument: true,
-        invoice: true
+        instrument: true
       },
       orderBy: { issueDate: 'desc' },
       take: limit

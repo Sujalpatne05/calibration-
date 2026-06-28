@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Users, Boxes, ArrowRight, Edit, Trash2 } from 'lucide-react'
+import { Box, Users, Boxes, ArrowRight, Edit, Trash2, TrendingUp, Clock, CheckCircle2, FileText } from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
 import { dashboardAPI, customersAPI } from '../services/api'
 
@@ -10,69 +10,64 @@ const QUICK_ACTIONS = [
     label: 'Add Instrument',
     to: '/instruments',
     icon: Box,
-    color: 'text-amber-500 bg-amber-50',
-    arrow: 'text-amber-500',
+    gradient: 'from-amber-400 to-orange-500',
+    iconBg: 'bg-gradient-to-br from-amber-50 to-orange-50',
+    iconColor: 'text-amber-600',
   },
   {
     id: 'customer',
     label: 'Add Customer',
     to: '/customers',
     icon: Users,
-    color: 'text-violet-500 bg-violet-50',
-    arrow: 'text-violet-500',
+    gradient: 'from-violet-400 to-purple-500',
+    iconBg: 'bg-gradient-to-br from-violet-50 to-purple-50',
+    iconColor: 'text-violet-600',
   },
   {
     id: 'standard',
-    label: 'Add standard',
+    label: 'Add Standard',
     to: '/standards',
     icon: Boxes,
-    color: 'text-rose-500 bg-rose-50',
-    arrow: 'text-rose-500',
+    gradient: 'from-rose-400 to-pink-500',
+    iconBg: 'bg-gradient-to-br from-rose-50 to-pink-50',
+    iconColor: 'text-rose-600',
   },
 ]
 
-// Circular progress component
-const CircularProgress = ({ value, label, sublabel }) => {
-  const radius = 45
-  const circumference = 2 * Math.PI * radius
-  const progress = ((value || 0) / 1000) * circumference // Assuming max 1000
-  const offset = circumference - progress
-
+// Modern KPI Card with gradient progress
+const KPICard = ({ value, label, sublabel, gradient, icon: Icon }) => {
+  const percentage = Math.min((value / 1000) * 100, 100)
+  
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative h-32 w-32">
-        <svg className="h-full w-full -rotate-90 transform">
-          {/* Background circle */}
-          <circle
-            cx="64"
-            cy="64"
-            r={radius}
-            stroke="#FCD34D"
-            strokeWidth="8"
-            fill="none"
-            opacity="0.2"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="64"
-            cy="64"
-            r={radius}
-            stroke="#FCD34D"
-            strokeWidth="8"
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-1000"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-3xl font-bold text-ink">{value || 0}</span>
+    <div className="group relative overflow-hidden rounded-xl sm:rounded-2xl bg-white p-3 sm:p-4 shadow-card ring-1 ring-slate-200/60 transition hover:shadow-card-hover animate-scale-in">
+      {/* Background gradient decoration */}
+      <div className={`absolute right-0 top-0 h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 rounded-full bg-gradient-to-br ${gradient} opacity-5 blur-3xl transition group-hover:opacity-10`} />
+      
+      <div className="relative z-10">
+        <div className="flex items-start justify-between mb-2 sm:mb-3">
+          <div className={`rounded-lg sm:rounded-xl bg-gradient-to-br ${gradient} p-1.5 sm:p-2 shadow-sm`}>
+            <Icon size={16} className="text-white sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5" />
+          </div>
+          <TrendingUp size={10} className="text-ink-faint sm:w-3 sm:h-3 lg:w-4 lg:h-4" />
         </div>
-      </div>
-      <div className="mt-4 text-center">
-        <p className="font-semibold text-ink">{label}</p>
-        {sublabel && <p className="text-sm text-ink-faint">{sublabel}</p>}
+
+        <div className="space-y-1 sm:space-y-1.5">
+          <div className="text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold text-ink">{value || 0}</div>
+          <div>
+            <p className="font-semibold text-ink-soft text-[11px] sm:text-xs lg:text-sm">{label}</p>
+            {sublabel && <p className="text-[9px] sm:text-[10px] lg:text-xs text-ink-faint">{sublabel}</p>}
+          </div>
+
+          {/* Progress bar */}
+          <div className="pt-1 sm:pt-1.5">
+            <div className="h-1 sm:h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className={`h-full bg-gradient-to-r ${gradient} transition-all duration-1000 ease-out`}
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -104,7 +99,7 @@ export default function Dashboard() {
         customersAPI.getAll(),
       ])
       setKpis(kpiData)
-      setCustomers(customerData.slice(0, 10)) // Get first 10 customers for quick tasklist
+      setCustomers(customerData.slice(0, 10))
     } catch (err) {
       setError('Failed to fetch dashboard data')
       console.error(err)
@@ -130,90 +125,119 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {error && <div className="rounded bg-red-100 p-3 text-red-700">{error}</div>}
+    <div className="w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 lg:space-y-8 animate-fade-up">
+      {error && (
+        <div className="rounded-xl bg-gradient-to-r from-red-50 to-red-100 border border-red-200 p-3 sm:p-4 text-red-700 shadow-sm text-sm">
+          {error}
+        </div>
+      )}
 
-      {/* Pending Items Section */}
+      {/* Modern KPI Section */}
       <section>
-        <h2 className="mb-6 text-xl font-semibold text-ink">Pending Items</h2>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-3 sm:mb-4 lg:mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-ink">Overview</h2>
+            <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs lg:text-sm text-ink-faint">Track your pending items and workload</p>
+          </div>
+          <Clock size={16} className="text-ink-faint sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
-            <div className="col-span-full text-center text-ink-faint">Loading...</div>
+            <div className="col-span-full text-center text-ink-faint py-8 sm:py-12">
+              <div className="inline-flex items-center gap-2">
+                <div className="h-4 w-4 sm:h-5 sm:w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                <span className="text-sm sm:text-base">Loading...</span>
+              </div>
+            </div>
           ) : (
             <>
-              <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100">
-                <CircularProgress
-                  value={kpis.pending_invoices || 2}
-                  label="Pending Invoices"
-                />
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100">
-                <CircularProgress
-                  value={kpis.pending_instruments || 98}
-                  label="Pending Instruments"
-                />
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100">
-                <CircularProgress
-                  value={kpis.standards_due || 0}
-                  label="Standards Due for"
-                  sublabel="Calibration"
-                />
-              </div>
-              <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100">
-                <CircularProgress
-                  value={kpis.pending_customers || 999}
-                  label="Pending Customer"
-                />
-              </div>
+              <KPICard
+                value={kpis.pending_invoices || 2}
+                label="Pending Invoices"
+                gradient="from-blue-400 to-cyan-500"
+                icon={FileText}
+              />
+              <KPICard
+                value={kpis.pending_instruments || 98}
+                label="Pending Instruments"
+                gradient="from-purple-400 to-pink-500"
+                icon={Box}
+              />
+              <KPICard
+                value={kpis.standards_due || 0}
+                label="Standards Due"
+                sublabel="for Calibration"
+                gradient="from-amber-400 to-orange-500"
+                icon={CheckCircle2}
+              />
+              <KPICard
+                value={kpis.pending_customers || 999}
+                label="Pending Customers"
+                gradient="from-emerald-400 to-teal-500"
+                icon={Users}
+              />
             </>
           )}
         </div>
       </section>
 
-      {/* Quick Tasklist Section */}
-      <section className="grid gap-6 lg:grid-cols-2">
-        {/* Left: Customer List */}
-        <div className="rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-ink">Quick tasklist</h2>
+      {/* Enhanced Quick Actions & Tasklist */}
+      <section className="w-full max-w-full grid gap-3 sm:gap-4 lg:gap-6 lg:grid-cols-2 overflow-x-hidden">
+        {/* Customer Tasklist */}
+        <div className="w-full max-w-full rounded-xl sm:rounded-2xl bg-white p-3 sm:p-4 lg:p-6 shadow-card ring-1 ring-slate-200/60 animate-scale-in overflow-hidden">
+          <div className="mb-3 sm:mb-4 lg:mb-6 flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg lg:text-xl font-bold text-ink">Quick Tasklist</h2>
+              <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs lg:text-sm text-ink-faint">{customers.length} items</p>
+            </div>
+            <div className="flex-shrink-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-50 to-purple-50 px-2 py-0.5 sm:px-2 sm:py-1 lg:px-3 lg:py-1.5">
+              <span className="text-[10px] sm:text-xs lg:text-sm font-semibold bg-gradient-ocean bg-clip-text text-transparent">
+                Active
+              </span>
+            </div>
           </div>
-          <p className="mb-4 text-sm text-ink-faint">Items: {customers.length}</p>
           
           {loading ? (
-            <div className="text-center text-ink-faint">Loading...</div>
-          ) : customers.length === 0 ? (
-            <p className="text-center text-ink-faint">No customers found</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-4 pb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                <div>TYPE</div>
-                <div>Name</div>
-                <div className="text-right">Action</div>
+            <div className="text-center text-ink-faint py-6 sm:py-8">
+              <div className="inline-flex items-center gap-2">
+                <div className="h-3 w-3 sm:h-4 sm:w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                <span className="text-sm">Loading...</span>
               </div>
-              {customers.map((customer) => (
+            </div>
+          ) : customers.length === 0 ? (
+            <p className="text-center text-ink-faint py-6 sm:py-8 text-sm">No customers found</p>
+          ) : (
+            <div className="space-y-2">
+              {customers.map((customer, index) => (
                 <div
                   key={customer.id}
-                  className="grid grid-cols-3 gap-4 items-center border-b border-slate-50 pb-3 last:border-0"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                  className="group flex items-center justify-between rounded-lg sm:rounded-xl border border-slate-100 bg-gradient-to-r from-white to-slate-50/50 p-2.5 sm:p-3 lg:p-4 transition hover:border-brand-200 hover:shadow-sm animate-fade-up"
                 >
-                  <div className="flex items-center">
-                    <Users size={18} className="text-ink-faint" />
+                  <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 min-w-0 flex-1">
+                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-50 to-purple-50">
+                      <Users size={14} className="text-brand-600 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink truncate text-xs sm:text-sm lg:text-base">{customer.name}</p>
+                      <p className="text-[10px] sm:text-xs text-ink-faint">Customer</p>
+                    </div>
                   </div>
-                  <div className="font-medium text-ink">{customer.name}</div>
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center gap-0.5 sm:gap-1">
                     <button
                       onClick={() => handleEditCustomer(customer)}
-                      className="rounded-lg p-2 text-brand-500 transition hover:bg-brand-50"
+                      className="rounded-lg p-1.5 sm:p-2 text-brand-500 transition hover:bg-brand-50"
                       title="Edit"
                     >
-                      <Edit size={16} />
+                      <Edit size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteCustomer(customer)}
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-50"
+                      className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-50 hover:text-red-500"
                       title="Delete"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
                     </button>
                   </div>
                 </div>
@@ -222,23 +246,35 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Right: Quick Actions */}
-        <div className="space-y-4">
-          {QUICK_ACTIONS.map((action) => {
+        {/* Quick Actions */}
+        <div className="w-full max-w-full space-y-2 sm:space-y-3 lg:space-y-4 overflow-hidden">
+          <div className="mb-1 sm:mb-2">
+            <h2 className="text-base sm:text-lg lg:text-xl font-bold text-ink">Quick Actions</h2>
+            <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs lg:text-sm text-ink-faint">Frequently used operations</p>
+          </div>
+          
+          {QUICK_ACTIONS.map((action, index) => {
             const Icon = action.icon
             return (
               <button
                 key={action.id}
                 onClick={() => navigate(action.to)}
-                className="group flex w-full items-center justify-between rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-brand-400"
+                style={{ animationDelay: `${index * 0.1}s` }}
+                className="group relative flex w-full items-center justify-between overflow-hidden rounded-xl sm:rounded-2xl bg-white p-3 sm:p-4 lg:p-6 shadow-card ring-1 ring-slate-200/60 transition hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-brand-400 animate-scale-in"
               >
-                <div className="flex items-center gap-4">
-                  <div className={`rounded-xl p-3 ${action.color}`}>
-                    <Icon size={24} />
+                {/* Gradient background on hover */}
+                <div className={`absolute inset-0 bg-gradient-to-r ${action.gradient} opacity-0 transition group-hover:opacity-5`} />
+                
+                <div className="relative flex items-center gap-2.5 sm:gap-3 lg:gap-4">
+                  <div className={`rounded-lg sm:rounded-xl ${action.iconBg} p-2 sm:p-3 lg:p-4 shadow-sm transition group-hover:scale-110 group-hover:shadow-md`}>
+                    <Icon size={18} className={`${action.iconColor} sm:w-5 sm:h-5 lg:w-6 lg:h-6`} />
                   </div>
-                  <p className="font-semibold text-ink">{action.label}</p>
+                  <p className="font-semibold text-ink text-xs sm:text-sm lg:text-base">{action.label}</p>
                 </div>
-                <ArrowRight size={20} className={`transition group-hover:translate-x-1 ${action.arrow}`} />
+                <ArrowRight 
+                  size={16} 
+                  className={`relative ${action.iconColor} transition group-hover:translate-x-1 sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5`} 
+                />
               </button>
             )
           })}

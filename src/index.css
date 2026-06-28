@@ -6,10 +6,45 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent text size adjustment on mobile */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   body {
     @apply bg-canvas font-sans text-ink antialiased;
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: contain;
+    /* Better tap highlighting */
+    -webkit-tap-highlight-color: rgba(13, 135, 235, 0.1);
+    /* Prevent horizontal overflow */
+    overflow-x: hidden;
+  }
+
+  /* Prevent horizontal overflow on root elements */
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* Improve touch targets for mobile */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Prevent zoom on input focus for iOS */
+  @media screen and (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 
   /* Slim, soft scrollbars to match the SaaS look */
@@ -30,17 +65,114 @@
     background: #b9bfd0;
     background-clip: content-box;
   }
+
+  /* Mobile-specific scrollbar */
+  @media (max-width: 768px) {
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+  }
 }
 
 @layer components {
-  /* Purple -> pink gradient wordmark used for "Calibration Report" */
+  /* Modern gradient text utilities */
   .text-gradient-brand {
     @apply bg-clip-text text-transparent;
     background-image: linear-gradient(95deg, #7c3aed 0%, #b13bd6 45%, #ec4899 100%);
   }
 
+  .text-gradient-ocean {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #0d87eb 0%, #a855f7 100%);
+  }
+
+  /* Glass card effect */
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-xl border border-slate-200/60 shadow-card;
+  }
+
+  /* Modern button styles */
+  .btn-primary {
+    @apply rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-3 font-semibold text-white shadow-md transition hover:shadow-lg hover:from-brand-600 hover:to-brand-700 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-md transition hover:shadow-lg hover:from-purple-600 hover:to-purple-700 active:scale-95;
+  }
+
+  /* Table headers */
   .table-head {
     @apply text-left text-xs font-semibold uppercase tracking-wide text-ink-faint;
+  }
+
+  /* Shimmer loading effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #f1f5f9 0%,
+      #e2e8f0 20%,
+      #f1f5f9 40%,
+      #f1f5f9 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Mobile-friendly utilities */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Safe area padding for notched devices */
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0.5rem);
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  .safe-left {
+    padding-left: max(env(safe-area-inset-left), 0.5rem);
+  }
+
+  .safe-right {
+    padding-right: max(env(safe-area-inset-right), 0.5rem);
+  }
+
+  /* Mobile card optimizations */
+  @media (max-width: 768px) {
+    .mobile-card {
+      @apply rounded-xl;
+      margin-left: -0.5rem;
+      margin-right: -0.5rem;
+      width: calc(100% + 1rem);
+    }
+
+    .mobile-compact {
+      @apply text-sm px-3 py-2;
+    }
+
+    /* Make all tables scrollable on mobile */
+    table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Reduce padding on mobile */
+    .container,
+    .max-w-7xl {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
   }
 }
 
@@ -401,18 +533,52 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 @media screen and (max-width: 640px) {
   .report-print-area {
-    padding: 12px !important;
-    overflow: auto !important;
+    padding: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .report-print-area .cc-page,
+  .report-print-area .tc-page {
+    width: 210mm;
+    min-width: 210mm;
+    height: auto;
+    min-height: 297mm;
+    max-height: none;
+    margin: 0 auto;
+    box-shadow: none;
   }
 
   .report-print-area .cc-page {
-    width: 210mm;
-    min-width: 210mm;
-    height: 297mm;
-    min-height: 297mm;
-    max-height: 297mm;
-    margin: 0;
     padding: 8.5mm 8mm 22mm 8mm;
+  }
+}
+
+/* Alternative: Scale certificate to fit mobile */
+@media screen and (max-width: 480px) {
+  .report-print-area {
+    padding: 4px !important;
+    background: #e2e8f0;
+    width: 100%;
+    overflow: hidden !important;
+    display: block;
+    max-height: 150mm;
+  }
+
+  .report-print-area .cc-page,
+  .report-print-area .tc-page {
+    width: 210mm !important;
+    min-width: 210mm !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    transform: scale(0.46);
+    transform-origin: top left;
+    margin: 0 !important;
   }
 }
 

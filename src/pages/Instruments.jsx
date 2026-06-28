@@ -41,7 +41,7 @@ const fmtDate = (d) =>
 const DEFAULT_CATEGORIES = ['Gauge', 'Transmitter', 'Switch', 'Pressure', 'Temperature', 'Flow', 'Level', 'Other']
 const DEFAULT_MAKES = ['Dwyer', 'Wika', 'Ashcroft', 'Fluke', 'Other']
 const DEFAULT_UNITS = ['inWC', 'Pa', 'PSI', 'psi', 'Bar', '°C', '°F', 'mA', '%']
-const ITEMS_PER_PAGE = 15
+const ITEMS_PER_PAGE = 10
 
 export default function Instruments() {
   const [rows, setRows] = useState([])
@@ -237,17 +237,17 @@ export default function Instruments() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
-          <div className="text-sm text-ink-soft">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-4">
+          <div className="text-xs sm:text-sm text-ink-soft text-center sm:text-left">
             Showing <span className="font-medium text-ink">{startIndex + 1}</span> to{' '}
             <span className="font-medium text-ink">{Math.min(endIndex, results.length)}</span> of{' '}
             <span className="font-medium text-ink">{results.length}</span> instruments
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-1 sm:gap-2 flex-wrap">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              className="rounded-lg border border-slate-300 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
             >
               Previous
             </button>
@@ -260,7 +260,7 @@ export default function Instruments() {
                   (page >= currentPage - 1 && page <= currentPage + 1)
                 
                 if (!showPage && (page === currentPage - 2 || page === currentPage + 2)) {
-                  return <span key={page} className="px-2 py-2 text-ink-faint">...</span>
+                  return <span key={page} className="px-1 sm:px-2 py-1.5 sm:py-2 text-ink-faint text-xs sm:text-sm">...</span>
                 }
                 
                 if (!showPage) return null
@@ -269,7 +269,7 @@ export default function Instruments() {
                   <button
                     key={page}
                     onClick={() => setCurrentPage(page)}
-                    className={`min-w-[2.5rem] rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    className={`min-w-[2rem] sm:min-w-[2.5rem] rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium transition ${
                       currentPage === page
                         ? 'bg-brand-500 text-white'
                         : 'border border-slate-300 text-ink hover:bg-slate-50'
@@ -284,7 +284,7 @@ export default function Instruments() {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              className="rounded-lg border border-slate-300 px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
             >
               Next
             </button>

@@ -34,8 +34,8 @@ export default function DashboardLayout() {
           onOpenMobile={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl">
+        <main className="flex-1 px-3 py-3 sm:px-4 sm:py-4 md:px-6 md:py-6 lg:px-8 overflow-x-hidden">
+          <div className="mx-auto w-full max-w-7xl">
             <Outlet />
           </div>
         </main>
