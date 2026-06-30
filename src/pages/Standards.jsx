@@ -24,6 +24,14 @@ const fmtDate = (d) =>
     ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—'
 
+const addOneYear = (d) => {
+  if (!d) return ''
+  const date = new Date(d)
+  if (Number.isNaN(date.getTime())) return ''
+  date.setFullYear(date.getFullYear() + 1)
+  return date
+}
+
 export default function Standards() {
   const [rows, setRows] = useState([])
   const [instruments, setInstruments] = useState([])
@@ -198,17 +206,23 @@ export default function Standards() {
         emptyMessage={loading ? 'Loading...' : 'No standards match your search.'}
         columns={[
           { key: 'sr', header: 'SR', render: (_, i) => startIndex + i + 1, align: 'center', className: 'text-ink-faint w-12' },
-          { key: 'instrument', header: 'Instrument', align: 'center', className: 'font-medium' },
           {
-            key: 'instrumentId',
-            header: 'Instrument Id',
+            key: 'instrument',
+            header: 'Master name',
+            align: 'center',
+            className: 'font-medium',
+            render: (r) => r.instrumentRef?.name || r.instrument,
+          },
+          {
+            key: 'model',
+            header: 'Model',
             align: 'center',
             className: 'text-ink-soft',
-            render: (r) => r.instrumentRef?.instrumentId || r.instrumentId,
+            render: (r) => r.instrumentRef?.model || r.model || '-',
           },
-          { key: 'calibrationDate', header: 'Calibration Date', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
-          { key: 'reportNo', header: 'Report NO', align: 'center', className: 'text-ink-soft' },
-          { key: 'certificateNo', header: 'Calibration Certificate Number', align: 'center', className: 'font-medium' },
+          { key: 'reportNo', header: 'Report no', align: 'center', className: 'text-ink-soft' },
+          { key: 'calibrationDate', header: 'CAL DATE', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
+          { key: 'certExpiry', header: 'DUE DATE', align: 'center', render: (r) => fmtDate(r.certExpiry || addOneYear(r.calibrationDate)) },
           {
             key: 'actions',
             header: 'Actions',

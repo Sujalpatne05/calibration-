@@ -36,6 +36,15 @@ const formatDate = (value) => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB')
 }
 
+const addOneYearDate = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  date.setFullYear(date.getFullYear() + 1)
+  return formatDate(date)
+}
+
 const standardText = (standard, ...keys) => {
   if (!standard) return ''
   if (typeof standard !== 'object') return String(standard)
@@ -530,14 +539,14 @@ const C = (props) => {
     ulr_no = source.ulrNo ?? '',
     calibration_date = formatDate(source.calibrationDate),
     date_of_issue = formatDate(source.issueDate),
-    due_date = formatDate(source.dueDate),
+    due_date = formatDate(source.dueDate) || addOneYearDate(source.calibrationDate),
     status = source.status ?? 'Calibrated & Passed',
     customer_name = source.customer?.name ?? '',
     customer_address = source.customer?.address ?? '',
     customer_contact = source.customer?.phone ?? '',
     customer_gstin = source.customer?.gstin ?? '',
-    calibration_location = source.location ?? '',
-    calibration_address = source.location ?? '',
+    calibration_location = source.location ?? 'Lab',
+    calibration_address = source.calibrationAddress ?? '',
     procedure_ref = source.procedureRef ?? '',
     srf_no = source.srfNo ?? '',
     instrument_name = source.instrumentName ?? '',
@@ -547,11 +556,11 @@ const C = (props) => {
     instrument_range = source.instrumentRange ?? '',
     instrument_resolution = source.instrumentResolution ?? '',
     instrument_accuracy = source.instrumentAccuracy ?? '',
-    instrument_tag = source.instrumentTag ?? '',
-    condition_on_receipt = source.conditionOnReceipt ?? '',
+    instrument_tag = source.instrumentTag ?? 'N/A',
+    condition_on_receipt = source.conditionOnReceipt ?? 'Good',
     standards = standardsList,
-    env_temperature = source.envTemperature ?? '',
-    env_humidity = source.envHumidity ?? '',
+    env_temperature = source.envTemperature ?? '25±5',
+    env_humidity = source.envHumidity ?? '40-70',
     env_pressure = source.envPressure ?? '',
     readingSections: sections = readingSections,
     custom_remark = source.customRemark ?? '',
@@ -683,7 +692,7 @@ const C = (props) => {
         </div>
         <div className="cc-info-cell">
           <span className="cc-label">Location</span>
-          <span className="cc-value">NA</span>
+          <span className="cc-value">N/A</span>
         </div>
       </div>
     </section>
