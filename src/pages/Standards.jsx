@@ -19,6 +19,95 @@ const EMPTY = {
 }
 const ITEMS_PER_PAGE = 10
 
+const STANDARD_MASTER_BY_KEY = {
+  'ASC-400': {
+    masterName: 'Multifunctional Calibrator',
+    model: 'ASC-400',
+    reportNo: 'CAL-25050083/ET/01',
+    calibrationDate: '2025-05-13',
+    dueDate: '2026-05-12',
+  },
+  'CAL-25050083/ET/01': {
+    masterName: 'Multifunctional Calibrator',
+    model: 'ASC-400',
+    reportNo: 'CAL-25050083/ET/01',
+    calibrationDate: '2025-05-13',
+    dueDate: '2026-05-12',
+  },
+  '68281901172': {
+    masterName: 'Multifunctional Calibrator',
+    model: 'ASC-400',
+    reportNo: 'CAL-25050083/ET/01',
+    calibrationDate: '2025-05-13',
+    dueDate: '2026-05-12',
+  },
+  '477AV-00': {
+    masterName: 'Digital Manometer',
+    model: '477AV-00',
+    reportNo: 'CAL-25100187/PR/03',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  'CAL-25100187/PR/03': {
+    masterName: 'Digital Manometer',
+    model: '477AV-00',
+    reportNo: 'CAL-25100187/PR/03',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  '005TTW': {
+    masterName: 'Digital Manometer',
+    model: '477AV-00',
+    reportNo: 'CAL-25100187/PR/03',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  '477B-1': {
+    masterName: 'Digital Manometer',
+    model: '477B-1',
+    reportNo: 'CAL-25100187/PR/02',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  'CAL-25100187/PR/02': {
+    masterName: 'Digital Manometer',
+    model: '477B-1',
+    reportNo: 'CAL-25100187/PR/02',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  '014L56': {
+    masterName: 'Digital Manometer',
+    model: '477B-1',
+    reportNo: 'CAL-25100187/PR/02',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  '477AV-2': {
+    masterName: 'Digital Manometer',
+    model: '477AV-2',
+    reportNo: 'CAL-25100187/PR/01',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  'CAL-25100187/PR/01': {
+    masterName: 'Digital Manometer',
+    model: '477AV-2',
+    reportNo: 'CAL-25100187/PR/01',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+  '005PWD': {
+    masterName: 'Digital Manometer',
+    model: '477AV-2',
+    reportNo: 'CAL-25100187/PR/01',
+    calibrationDate: '2025-10-18',
+    dueDate: '2026-10-17',
+  },
+}
+
+const normalizeKey = (value) => String(value || '').trim().toUpperCase()
+
 const fmtDate = (d) =>
   d
     ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -32,6 +121,47 @@ const addOneYear = (d) => {
   return date
 }
 
+const resolveStandardMaster = (row) => {
+  const keys = [
+    row.reportNo,
+    row.certificateNo,
+    row.model,
+    row.instrumentCode,
+    typeof row.instrumentId === 'string' ? row.instrumentId : '',
+  ]
+
+  for (const key of keys) {
+    const master = STANDARD_MASTER_BY_KEY[normalizeKey(key)]
+    if (master) return master
+  }
+
+  return null
+}
+
+const decorateStandard = (row) => {
+  const master = resolveStandardMaster(row)
+
+  if (master) {
+    return {
+      ...row,
+      displayMasterName: master.masterName,
+      displayModel: master.model,
+      displayReportNo: master.reportNo,
+      displayCalibrationDate: master.calibrationDate,
+      displayDueDate: master.dueDate,
+    }
+  }
+
+  return {
+    ...row,
+    displayMasterName: row.instrument || '-',
+    displayModel: row.model || (typeof row.instrumentId === 'string' ? row.instrumentId : '-') || '-',
+    displayReportNo: row.reportNo || '-',
+    displayCalibrationDate: row.calibrationDate,
+    displayDueDate: row.certExpiry || addOneYear(row.calibrationDate),
+  }
+}
+
 export default function Standards() {
   const [rows, setRows] = useState([])
   const [instruments, setInstruments] = useState([])
@@ -39,6 +169,9 @@ export default function Standards() {
   const [error, setError] = useState(null)
   const { query, setQuery, results } = useSearch(rows, [
     'instrument',
+    'displayMasterName',
+    'displayModel',
+    'displayReportNo',
     'instrumentId',
     'reportNo',
     'certificateNo',
@@ -74,7 +207,7 @@ export default function Standards() {
       setLoading(true)
       setError(null)
       const data = await standardsAPI.getAll(query)
-      setRows(data)
+      setRows(data.map(decorateStandard))
     } catch (err) {
       setError('Failed to fetch standards')
       console.error(err)
@@ -211,18 +344,18 @@ export default function Standards() {
             header: 'Master name',
             align: 'center',
             className: 'font-medium',
-            render: (r) => r.instrumentRef?.name || r.instrument,
+            render: (r) => r.displayMasterName,
           },
           {
-            key: 'model',
+            key: 'instrumentId',
             header: 'Model',
             align: 'center',
             className: 'text-ink-soft',
-            render: (r) => r.instrumentRef?.model || r.model || '-',
+            render: (r) => r.displayModel,
           },
-          { key: 'reportNo', header: 'Report no', align: 'center', className: 'text-ink-soft' },
-          { key: 'calibrationDate', header: 'CAL DATE', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
-          { key: 'certExpiry', header: 'DUE DATE', align: 'center', render: (r) => fmtDate(r.certExpiry || addOneYear(r.calibrationDate)) },
+          { key: 'reportNo', header: 'Report no', align: 'center', className: 'text-ink-soft', render: (r) => r.displayReportNo },
+          { key: 'calibrationDate', header: 'CAL DATE', align: 'center', render: (r) => fmtDate(r.displayCalibrationDate) },
+          { key: 'certExpiry', header: 'DUE DATE', align: 'center', render: (r) => fmtDate(r.displayDueDate) },
           {
             key: 'actions',
             header: 'Actions',
