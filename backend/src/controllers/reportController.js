@@ -34,6 +34,10 @@ const findChromeExecutable = async () => {
 const getChromeExecutable = async () => {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
 
+  if (process.platform === 'win32') {
+    return findChromeExecutable();
+  }
+
   try {
     const bundledChromePath = await chromium.executablePath();
     if (bundledChromePath) return bundledChromePath;
