@@ -14,7 +14,18 @@ export const getKPIs = async (req, res) => {
       where: { certExpiry: { lte: new Date() } }
     });
 
-    const pendingCustomers = await prisma.customer.count();
+    const pendingCustomers = await prisma.customer.count({
+      where: {
+        ignored: false,
+        OR: [
+          { email: null },
+          { email: '' },
+          { phone: '' },
+          { address: null },
+          { address: '' }
+        ]
+      }
+    });
 
     res.json({
       pending_instruments: pendingInstruments,

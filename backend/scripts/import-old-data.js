@@ -14,6 +14,10 @@ const prisma = new PrismaClient()
 const DRY_RUN = process.argv.includes('--dry-run')
 const LIMIT_ARG = process.argv.find((arg) => arg.startsWith('--limit='))
 const LIMIT = LIMIT_ARG ? Number(LIMIT_ARG.split('=')[1]) : null
+const FILE_ARGS = process.argv
+  .filter((arg) => arg.startsWith('--file='))
+  .map((arg) => arg.slice('--file='.length))
+  .filter(Boolean)
 const SOURCE_PREFIX = 'Old data source:'
 
 const normalizeSpace = (value) =>
@@ -157,7 +161,29 @@ const readRowsFromSheet = (file, sheetName, sheet) => {
   return dataRows
 }
 
+const collectRowsFromWorkbook = (filePath) => {
+  const workbook = XLSX.readFile(filePath)
+  const file = path.basename(filePath)
+  const rows = []
+
+  for (const sheetName of workbook.SheetNames) {
+    rows.push(...readRowsFromSheet(file, sheetName, workbook.Sheets[sheetName]))
+  }
+
+  return rows
+}
+
 const collectOldDataRows = () => {
+  if (FILE_ARGS.length) {
+    return FILE_ARGS.flatMap((filePath) => {
+      const resolved = path.resolve(filePath)
+      if (!fs.existsSync(resolved)) {
+        throw new Error(`Excel file not found: ${resolved}`)
+      }
+      return collectRowsFromWorkbook(resolved)
+    })
+  }
+
   if (!fs.existsSync(oldDataDir)) {
     throw new Error(`Old data folder not found: ${oldDataDir}`)
   }
@@ -168,10 +194,7 @@ const collectOldDataRows = () => {
     .sort((a, b) => a.localeCompare(b))
 
   for (const file of files) {
-    const workbook = XLSX.readFile(path.join(oldDataDir, file))
-    for (const sheetName of workbook.SheetNames) {
-      rows.push(...readRowsFromSheet(file, sheetName, workbook.Sheets[sheetName]))
-    }
+    rows.push(...collectRowsFromWorkbook(path.join(oldDataDir, file)))
   }
 
   return rows

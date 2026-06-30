@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Users, Boxes, ArrowRight, Edit, Trash2, TrendingUp, Clock, CheckCircle2, FileText } from 'lucide-react'
-import StatusBadge from '../components/StatusBadge'
+import { Box, Users, Boxes, ArrowRight, Edit, EyeOff, TrendingUp, Clock, CheckCircle2, FileText } from 'lucide-react'
 import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import Button from '../components/Button'
@@ -38,6 +37,7 @@ const QUICK_ACTIONS = [
 ]
 
 const EMPTY_CUSTOMER = { name: '', address: '', email: '', phone: '' }
+const TASKS_PER_PAGE = 5
 
 // Modern KPI Card with gradient progress
 const KPICard = ({ value, label, sublabel, gradient, icon: Icon }) => {
@@ -87,6 +87,12 @@ export default function Dashboard() {
   const [editingCustomer, setEditingCustomer] = useState(null)
   const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER)
   const [savingCustomer, setSavingCustomer] = useState(false)
+  const [taskPage, setTaskPage] = useState(1)
+
+  const totalTaskPages = Math.max(1, Math.ceil(customers.length / TASKS_PER_PAGE))
+  const taskStartIndex = (taskPage - 1) * TASKS_PER_PAGE
+  const taskEndIndex = taskStartIndex + TASKS_PER_PAGE
+  const paginatedCustomers = customers.slice(taskStartIndex, taskEndIndex)
 
   useEffect(() => {
     fetchDashboardData()
@@ -104,10 +110,11 @@ export default function Dashboard() {
       setError(null)
       const [kpiData, customerData] = await Promise.all([
         dashboardAPI.getKPIs(),
-        customersAPI.getAll(),
+        customersAPI.getAll('', { incomplete: true, ignored: false }),
       ])
       setKpis(kpiData)
-      setCustomers(customerData.slice(0, 10))
+      setCustomers(customerData)
+      setTaskPage(1)
     } catch (err) {
       setError('Failed to fetch dashboard data')
       console.error(err)
@@ -139,7 +146,7 @@ export default function Dashboard() {
       const updated = await customersAPI.update(editingCustomer.id, customerForm)
       setCustomers((prev) => prev.map((customer) => (
         customer.id === editingCustomer.id ? updated : customer
-      )))
+      )).filter((customer) => !isCustomerComplete(customer)))
       closeEditCustomer()
     } catch (err) {
       alert('Failed to save customer')
@@ -149,13 +156,26 @@ export default function Dashboard() {
     }
   }
 
-  const handleDeleteCustomer = async (customer) => {
-    if (window.confirm(`Delete customer "${customer.name}"?`)) {
+  const isCustomerComplete = (customer) =>
+    Boolean(
+      String(customer.name || '').trim() &&
+      String(customer.email || '').trim() &&
+      String(customer.phone || '').trim() &&
+      String(customer.address || '').trim()
+    )
+
+  const handleIgnoreCustomer = async (customer) => {
+    if (window.confirm(`Ignore customer "${customer.name}" from the dashboard tasklist?`)) {
       try {
-        await customersAPI.delete(customer.id)
-        setCustomers((prev) => prev.filter((c) => c.id !== customer.id))
+        await customersAPI.update(customer.id, { ignored: true })
+        setCustomers((prev) => {
+          const next = prev.filter((c) => c.id !== customer.id)
+          const nextTotalPages = Math.max(1, Math.ceil(next.length / TASKS_PER_PAGE))
+          setTaskPage((page) => Math.min(page, nextTotalPages))
+          return next
+        })
       } catch (err) {
-        alert('Failed to delete customer')
+        alert('Failed to ignore customer')
         console.error(err)
       }
     }
@@ -226,7 +246,7 @@ export default function Dashboard() {
           <div className="mb-3 sm:mb-4 lg:mb-6 flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <h2 className="text-base sm:text-lg lg:text-xl font-bold text-ink">Quick Tasklist</h2>
-              <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs lg:text-sm text-ink-faint">{customers.length} items</p>
+              <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs lg:text-sm text-ink-faint">{customers.length} incomplete customers</p>
             </div>
             <div className="flex-shrink-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-50 to-purple-50 px-2 py-0.5 sm:px-2 sm:py-1 lg:px-3 lg:py-1.5">
               <span className="text-[10px] sm:text-xs lg:text-sm font-semibold bg-gradient-ocean bg-clip-text text-transparent">
@@ -243,53 +263,82 @@ export default function Dashboard() {
               </div>
             </div>
           ) : customers.length === 0 ? (
-            <p className="text-center text-ink-faint py-6 sm:py-8 text-sm">No customers found</p>
+            <p className="text-center text-ink-faint py-6 sm:py-8 text-sm">No incomplete customers found</p>
           ) : (
-            <div className="space-y-2">
-              {customers.map((customer, index) => (
-                <div
-                  key={customer.id}
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                  className="group flex items-center justify-between rounded-lg sm:rounded-xl border border-slate-100 bg-gradient-to-r from-white to-slate-50/50 p-2.5 sm:p-3 lg:p-4 transition hover:border-brand-200 hover:shadow-sm animate-fade-up"
-                >
-                  <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 min-w-0 flex-1">
-                    <div className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-50 to-purple-50">
-                      <Users size={14} className="text-brand-600 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+            <>
+              <div className="space-y-2">
+                {paginatedCustomers.map((customer, index) => (
+                  <div
+                    key={customer.id}
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                    className="group flex items-center justify-between rounded-lg sm:rounded-xl border border-slate-100 bg-gradient-to-r from-white to-slate-50/50 p-2.5 sm:p-3 lg:p-4 transition hover:border-brand-200 hover:shadow-sm animate-fade-up"
+                  >
+                    <div className="flex items-center gap-2 sm:gap-2.5 lg:gap-3 min-w-0 flex-1">
+                      <div className="flex h-7 w-7 sm:h-8 sm:w-8 lg:h-10 lg:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl bg-gradient-to-br from-brand-50 to-purple-50">
+                        <Users size={14} className="text-brand-600 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-ink truncate text-xs sm:text-sm lg:text-base">{customer.name}</p>
+                        <p className="text-[10px] sm:text-xs text-ink-faint">Incomplete customer data</p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink truncate text-xs sm:text-sm lg:text-base">{customer.name}</p>
-                      <p className="text-[10px] sm:text-xs text-ink-faint">Customer</p>
+                    <div className="flex items-center gap-0.5 sm:gap-1">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleEditCustomer(customer)
+                        }}
+                        className="rounded-lg p-1.5 sm:p-2 text-brand-500 transition hover:bg-brand-50"
+                        title="Edit"
+                      >
+                        <Edit size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          handleIgnoreCustomer(customer)
+                        }}
+                        className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-50 hover:text-amber-500"
+                        title="Ignore"
+                      >
+                        <EyeOff size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 sm:gap-1">
+                ))}
+              </div>
+
+              {totalTaskPages > 1 && (
+                <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <p className="text-[11px] sm:text-xs text-ink-faint">
+                    Showing {taskStartIndex + 1}-{Math.min(taskEndIndex, customers.length)} of {customers.length}
+                  </p>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        handleEditCustomer(customer)
-                      }}
-                      className="rounded-lg p-1.5 sm:p-2 text-brand-500 transition hover:bg-brand-50"
-                      title="Edit"
+                      onClick={() => setTaskPage((page) => Math.max(1, page - 1))}
+                      disabled={taskPage === 1}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <Edit size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
+                      Previous
                     </button>
+                    <span className="text-xs font-semibold text-ink-soft">{taskPage}/{totalTaskPages}</span>
                     <button
                       type="button"
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        handleDeleteCustomer(customer)
-                      }}
-                      className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-50 hover:text-red-500"
-                      title="Delete"
+                      onClick={() => setTaskPage((page) => Math.min(totalTaskPages, page + 1))}
+                      disabled={taskPage === totalTaskPages}
+                      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <Trash2 size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
+                      Next
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 

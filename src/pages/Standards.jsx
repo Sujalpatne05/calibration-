@@ -106,6 +106,53 @@ const STANDARD_MASTER_BY_KEY = {
   },
 }
 
+const BASE_STANDARD_ROWS = [
+  {
+    id: 'base-asc-400',
+    instrument: 'Multifunctional Calibrator',
+    certificateNo: '68281901172',
+    instrumentCode: '68281901172',
+    displayMasterName: 'Multifunctional Calibrator',
+    displayModel: 'ASC-400',
+    displayReportNo: 'CAL-25050083/ET/01',
+    displayCalibrationDate: '2025-05-13',
+    displayDueDate: '2026-05-12',
+  },
+  {
+    id: 'base-477av-00',
+    instrument: 'Digital Manometer',
+    certificateNo: '005TTW',
+    instrumentCode: '005TTW',
+    displayMasterName: 'Digital Manometer',
+    displayModel: '477AV-00',
+    displayReportNo: 'CAL-25100187/PR/03',
+    displayCalibrationDate: '2025-10-18',
+    displayDueDate: '2026-10-17',
+  },
+  {
+    id: 'base-477b-1',
+    instrument: 'Digital Manometer',
+    certificateNo: '014L56',
+    instrumentCode: '014L56',
+    displayMasterName: 'Digital Manometer',
+    displayModel: '477B-1',
+    displayReportNo: 'CAL-25100187/PR/02',
+    displayCalibrationDate: '2025-10-18',
+    displayDueDate: '2026-10-17',
+  },
+  {
+    id: 'base-477av-2',
+    instrument: 'Digital Manometer',
+    certificateNo: '005PWD',
+    instrumentCode: '005PWD',
+    displayMasterName: 'Digital Manometer',
+    displayModel: '477AV-2',
+    displayReportNo: 'CAL-25100187/PR/01',
+    displayCalibrationDate: '2025-10-18',
+    displayDueDate: '2026-10-17',
+  },
+]
+
 const normalizeKey = (value) => String(value || '').trim().toUpperCase()
 
 const fmtDate = (d) =>
@@ -206,8 +253,7 @@ export default function Standards() {
     try {
       setLoading(true)
       setError(null)
-      const data = await standardsAPI.getAll(query)
-      setRows(data.map(decorateStandard))
+      setRows(BASE_STANDARD_ROWS)
     } catch (err) {
       setError('Failed to fetch standards')
       console.error(err)
@@ -234,22 +280,28 @@ export default function Standards() {
   const openEdit = (row) => {
     setEditing(row)
     // Convert ISO date to yyyy-MM-dd format for date input
-    const dateValue = row.calibrationDate 
-      ? new Date(row.calibrationDate).toISOString().split('T')[0] 
+    const sourceDate = row.calibrationDate || row.displayCalibrationDate
+    const dateValue = sourceDate
+      ? new Date(sourceDate).toISOString().split('T')[0] 
       : ''
     
     setForm({
       instrumentId: row.instrumentId || '',
-      instrumentCode: row.instrumentRef?.instrumentId || row.instrumentId || '',
-      instrument: row.instrument || '',
+      instrumentCode: row.instrumentRef?.instrumentId || row.instrumentCode || row.instrumentId || '',
+      instrument: row.instrument || row.displayMasterName || '',
       calibrationDate: dateValue,
-      reportNo: row.reportNo || '',
+      reportNo: row.reportNo || row.displayReportNo || '',
       certificateNo: row.certificateNo || '',
     })
     setModalOpen(true)
   }
 
   const handleDelete = async (row) => {
+    if (String(row.id).startsWith('base-')) {
+      alert('Base standards cannot be deleted from this list.')
+      return
+    }
+
     if (window.confirm(`Delete standard "${row.certificateNo}"?`)) {
       try {
         await standardsAPI.delete(row.id)
@@ -278,6 +330,25 @@ export default function Standards() {
       setLoading(true)
       
       if (editing) {
+        if (String(editing.id).startsWith('base-')) {
+          const updatedRow = {
+            ...editing,
+            instrument: form.instrument,
+            instrumentCode: form.instrumentCode,
+            certificateNo: form.certificateNo,
+            reportNo: form.reportNo,
+            calibrationDate: form.calibrationDate,
+            displayMasterName: form.instrument,
+            displayReportNo: form.reportNo,
+            displayCalibrationDate: form.calibrationDate,
+            displayDueDate: addOneYear(form.calibrationDate),
+          }
+          setRows((r) => r.map((x) => (x.id === editing.id ? updatedRow : x)))
+          setModalOpen(false)
+          setForm(EMPTY)
+          return
+        }
+
         // When updating, don't send instrumentId or instrument (they shouldn't change)
         const payload = {
           calibrationDate: form.calibrationDate,
@@ -315,7 +386,7 @@ export default function Standards() {
   }
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
+    <div className="standards-page rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-100 sm:p-8 lg:p-10">
       {error && <div className="mb-4 rounded bg-red-100 p-3 text-red-700">{error}</div>}
 
       {/* Toolbar */}
@@ -324,14 +395,14 @@ export default function Standards() {
           value={query}
           onChange={setQuery}
           placeholder="Certificate no"
-          className="w-full sm:max-w-sm"
+          className="w-full sm:max-w-md"
         />
         <Button onClick={openAdd} disabled={loading}>
           <Plus size={18} /> Add Standard
         </Button>
       </div>
 
-      <h2 className="mb-2 mt-6 font-display text-lg font-semibold text-ink">All Standards</h2>
+      <h2 className="mb-4 mt-8 font-display text-2xl font-semibold text-ink">All Standards</h2>
 
       <DataTable
         rowKey={(r) => r.id}
@@ -446,8 +517,7 @@ export default function Standards() {
                   value={form.instrument}
                   onChange={(e) => setForm({ ...form, instrument: e.target.value })}
                   placeholder="Search instrument..."
-                  disabled={!!editing}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
                 />
                 {false && (
                   <div className="absolute z-50 w-full mt-1 max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
@@ -496,7 +566,7 @@ export default function Standards() {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-              Calibration Date{' '}
+              Previous Calibration Date{' '}
               {editing && form.calibrationDate && (
                 <span className="text-red-400">{fmtDate(form.calibrationDate)}</span>
               )}

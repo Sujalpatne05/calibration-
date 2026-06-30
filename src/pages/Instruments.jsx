@@ -66,6 +66,7 @@ const STANDARD_MASTER_BY_KEY = {
 }
 
 const normalizeKey = (value) => String(value || '').trim().toUpperCase()
+const displayModel = (value) => String(value || '').split('+')[0].trim()
 
 const resolveStandardMaster = (standard) => {
   if (!standard) return null
@@ -301,9 +302,8 @@ export default function Instruments() {
         columns={[
           { key: 'sr', header: 'Sr', render: (_, i) => startIndex + i + 1, className: 'text-ink-faint w-12' },
           { key: 'name', header: 'Instrument', className: 'font-medium', render: (r) => r.displayName || r.name },
-          { key: 'serial', header: 'Serial', className: 'text-ink-soft' },
           { key: 'make', header: 'Make', className: 'text-ink-soft' },
-          { key: 'model', header: 'Model', render: (r) => r.displayModel || r.model },
+          { key: 'model', header: 'Model', render: (r) => displayModel(r.displayModel || r.model) },
           { key: 'category', header: 'Category', className: 'text-ink-soft' },
           {
             key: 'actions',

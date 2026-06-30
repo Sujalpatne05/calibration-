@@ -106,6 +106,18 @@
     @apply text-left text-xs font-semibold uppercase tracking-wide text-ink-faint;
   }
 
+  .standards-page .table-head {
+    @apply text-sm;
+  }
+
+  .standards-page table th {
+    @apply px-6 py-5;
+  }
+
+  .standards-page table td {
+    @apply px-6 py-4 text-base;
+  }
+
   /* Shimmer loading effect */
   .shimmer {
     background: linear-gradient(

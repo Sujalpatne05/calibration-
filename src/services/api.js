@@ -89,9 +89,13 @@ const apiBlob = async (endpoint, options = {}) => {
 // ===== CUSTOMERS API =====
 export const customersAPI = {
   // GET all customers with optional search
-  getAll: (search = '') => {
-    const params = search ? `?search=${encodeURIComponent(search)}` : ''
-    return apiCall(`/customers${params}`)
+  getAll: (search = '', options = {}) => {
+    const params = new URLSearchParams()
+    if (search) params.append('search', search)
+    if (options.ignored !== undefined && options.ignored !== null) params.append('ignored', options.ignored)
+    if (options.incomplete !== undefined && options.incomplete !== null) params.append('incomplete', options.incomplete)
+    const queryStr = params.toString()
+    return apiCall(`/customers${queryStr ? '?' + queryStr : ''}`)
   },
 
   // POST create new customer

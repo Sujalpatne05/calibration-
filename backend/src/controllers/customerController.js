@@ -6,15 +6,36 @@ const prisma = new PrismaClient();
 
 export const getAllCustomers = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, ignored, incomplete } = req.query;
 
-    const where = search ? {
-      OR: [
+    const where = {};
+
+    if (search) {
+      where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } }
-      ]
-    } : {};
+      ];
+    }
+
+    if (ignored !== undefined) {
+      where.ignored = ignored === 'true';
+    }
+
+    if (incomplete === 'true') {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { email: null },
+            { email: '' },
+            { phone: '' },
+            { address: null },
+            { address: '' }
+          ]
+        }
+      ];
+    }
 
     const customers = await prisma.customer.findMany({
       where,
