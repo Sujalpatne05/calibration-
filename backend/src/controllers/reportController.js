@@ -1,14 +1,11 @@
 import pkg from '@prisma/client';
 import logger from '../config/logger.js';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
 import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
-const execFileAsync = promisify(execFile);
 
 const chromeCandidates = [
   process.env.CHROME_PATH,
@@ -32,6 +29,55 @@ const findChromeExecutable = async () => {
     }
   }
   return null;
+};
+
+const getChromeExecutable = async () => {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+
+  try {
+    const bundledChromePath = await chromium.executablePath();
+    if (bundledChromePath) return bundledChromePath;
+  } catch (error) {
+    logger.warn('Bundled Chromium executable unavailable:', error);
+  }
+
+  return findChromeExecutable();
+};
+
+const renderHtmlToPdf = async (html) => {
+  const executablePath = await getChromeExecutable();
+
+  if (!executablePath) {
+    throw new Error('Chrome or Chromium was not found on the server.');
+  }
+
+  const browser = await puppeteer.launch({
+    args: [
+      ...chromium.args,
+      '--disable-gpu',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+    ],
+    defaultViewport: chromium.defaultViewport,
+    executablePath,
+    headless: chromium.headless,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: ['load', 'networkidle0'], timeout: 30000 });
+    await page.emulateMediaType('print');
+
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      preferCSSPageSize: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+  } finally {
+    await browser.close();
+  }
 };
 
 const safePdfFilename = (value) =>
@@ -77,8 +123,6 @@ const sanitizeReportData = (data) => {
 };
 
 export const renderReportPdf = async (req, res) => {
-  let tempDir = null;
-
   try {
     const { html, filename } = req.body || {};
 
@@ -86,32 +130,7 @@ export const renderReportPdf = async (req, res) => {
       return res.status(400).json({ error: 'Printable HTML is required' });
     }
 
-    const chromePath = await findChromeExecutable();
-    if (!chromePath) {
-      return res.status(500).json({
-        error: 'Chrome or Edge was not found on the server. Set CHROME_PATH to enable silent PDF export.'
-      });
-    }
-
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sanc-pdf-'));
-    const htmlPath = path.join(tempDir, 'report.html');
-    const pdfPath = path.join(tempDir, 'report.pdf');
-
-    await fs.writeFile(htmlPath, html, 'utf8');
-
-    await execFileAsync(chromePath, [
-      '--headless=new',
-      '--disable-gpu',
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--run-all-compositor-stages-before-draw',
-      '--virtual-time-budget=1000',
-      '--print-to-pdf-no-header',
-      `--print-to-pdf=${pdfPath}`,
-      `file:///${htmlPath.replace(/\\/g, '/')}`,
-    ], { timeout: 30000 });
-
-    const pdf = await fs.readFile(pdfPath);
+    const pdf = await renderHtmlToPdf(html);
     const cleanFilename = `${safePdfFilename(filename)}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
@@ -119,11 +138,7 @@ export const renderReportPdf = async (req, res) => {
     res.send(pdf);
   } catch (error) {
     logger.error('Render report PDF error:', error);
-    res.status(500).json({ error: 'Failed to render PDF' });
-  } finally {
-    if (tempDir) {
-      fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-    }
+    res.status(500).json({ error: error.message || 'Failed to render PDF' });
   }
 };
 
