@@ -11,6 +11,7 @@ import { standardsAPI, instrumentsAPI } from '../services/api'
 
 const EMPTY = {
   instrumentId: '',
+  instrumentCode: '',
   instrument: '',
   calibrationDate: '',
   reportNo: '',
@@ -37,8 +38,6 @@ export default function Standards() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY)
-  const [instrumentSearch, setInstrumentSearch] = useState('')
-  const [showInstrumentDropdown, setShowInstrumentDropdown] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
 
   // Calculate pagination
@@ -100,12 +99,12 @@ export default function Standards() {
     
     setForm({
       instrumentId: row.instrumentId || '',
+      instrumentCode: row.instrumentRef?.instrumentId || row.instrumentId || '',
       instrument: row.instrument || '',
       calibrationDate: dateValue,
       reportNo: row.reportNo || '',
       certificateNo: row.certificateNo || '',
     })
-    setInstrumentSearch(row.instrument ? `${row.instrument} - ${row.instrumentRef?.serial || ''} (${row.instrumentRef?.customer?.name || 'No Customer'})` : '')
     setModalOpen(true)
   }
 
@@ -121,8 +120,19 @@ export default function Standards() {
     }
   }
 
+  const findInstrumentForStandard = () => {
+    const instrumentCode = String(form.instrumentCode || '').trim().toLowerCase()
+    const instrumentName = String(form.instrument || '').trim().toLowerCase()
+
+    return instruments.find((instrument) => {
+      const codeMatches = instrumentCode && String(instrument.instrumentId || '').trim().toLowerCase() === instrumentCode
+      const nameMatches = instrumentName && String(instrument.name || '').trim().toLowerCase() === instrumentName
+      return codeMatches || nameMatches
+    })
+  }
+
   const handleSave = async () => {
-    if (!form.instrumentId || !form.certificateNo.trim()) return
+    if (!form.instrument.trim() || !form.certificateNo.trim()) return
     try {
       setLoading(true)
       
@@ -136,10 +146,19 @@ export default function Standards() {
         const updated = await standardsAPI.update(editing.id, payload)
         setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
       } else {
-        // When creating, ensure instrumentId is a number
+        const selectedInstrument = findInstrumentForStandard()
+
+        if (!selectedInstrument) {
+          alert('No matching instrument found. Please enter an existing Instrument Id or exact Instrument name.')
+          return
+        }
+
         const payload = {
-          ...form,
-          instrumentId: parseInt(form.instrumentId)
+          instrumentId: selectedInstrument.id,
+          instrument: form.instrument || selectedInstrument.name,
+          calibrationDate: form.calibrationDate,
+          reportNo: form.reportNo,
+          certificateNo: form.certificateNo,
         }
         const created = await standardsAPI.create(payload)
         setRows((r) => [created, ...r])
@@ -180,7 +199,13 @@ export default function Standards() {
         columns={[
           { key: 'sr', header: 'SR', render: (_, i) => startIndex + i + 1, align: 'center', className: 'text-ink-faint w-12' },
           { key: 'instrument', header: 'Instrument', align: 'center', className: 'font-medium' },
-          { key: 'instrumentId', header: 'Instrument Id', align: 'center', className: 'text-ink-soft' },
+          {
+            key: 'instrumentId',
+            header: 'Instrument Id',
+            align: 'center',
+            className: 'text-ink-soft',
+            render: (r) => r.instrumentRef?.instrumentId || r.instrumentId,
+          },
           { key: 'calibrationDate', header: 'Calibration Date', align: 'center', render: (r) => fmtDate(r.calibrationDate) },
           { key: 'reportNo', header: 'Report NO', align: 'center', className: 'text-ink-soft' },
           { key: 'certificateNo', header: 'Calibration Certificate Number', align: 'center', className: 'font-medium' },
@@ -268,21 +293,16 @@ export default function Standards() {
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">Instrument name</label>
             <div className="flex gap-2">
-              <div className="flex-1 relative">
+              <div className="flex-1">
                 <input
                   type="text"
-                  value={instrumentSearch}
-                  onChange={(e) => {
-                    setInstrumentSearch(e.target.value)
-                    setShowInstrumentDropdown(true)
-                  }}
-                  onFocus={() => setShowInstrumentDropdown(true)}
-                  onBlur={() => setTimeout(() => setShowInstrumentDropdown(false), 200)}
+                  value={form.instrument}
+                  onChange={(e) => setForm({ ...form, instrument: e.target.value })}
                   placeholder="Search instrument..."
                   disabled={!!editing}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                {showInstrumentDropdown && (
+                {false && (
                   <div className="absolute z-50 w-full mt-1 max-h-60 overflow-auto rounded-xl border border-slate-200 bg-white shadow-lg">
                     {instruments
                       .filter(i => 
@@ -293,7 +313,12 @@ export default function Standards() {
                           key={i.id}
                           onMouseDown={(e) => {
                             e.preventDefault()
-                            setForm({ ...form, instrumentId: i.id, instrument: i.name })
+                            setForm({
+                              ...form,
+                              instrumentId: i.id,
+                              instrumentCode: i.instrumentId || '',
+                              instrument: i.name,
+                            })
                             setInstrumentSearch(`${i.name} - ${i.serial} (${i.customer?.name || 'No Customer'})`)
                             setShowInstrumentDropdown(false)
                           }}
@@ -324,7 +349,7 @@ export default function Standards() {
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">
-              Previous Calibration Date{' '}
+              Calibration Date{' '}
               {editing && form.calibrationDate && (
                 <span className="text-red-400">{fmtDate(form.calibrationDate)}</span>
               )}
@@ -338,10 +363,17 @@ export default function Standards() {
           </div>
 
           <FormInput
-            label="Report Number"
+            label="Report NO"
             value={form.reportNo}
             onChange={(e) => setForm({ ...form, reportNo: e.target.value })}
             placeholder="CAL-25100187/PR/02"
+          />
+
+          <FormInput
+            label="Instrument Id"
+            value={form.instrumentCode}
+            onChange={(e) => setForm({ ...form, instrumentCode: e.target.value })}
+            placeholder="Instrument Id"
           />
 
           <FormInput

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Users, Boxes, ArrowRight, Edit, Trash2, TrendingUp, Clock, CheckCircle2, FileText } from 'lucide-react'
 import StatusBadge from '../components/StatusBadge'
+import Modal from '../components/Modal'
+import FormInput from '../components/FormInput'
+import Button from '../components/Button'
 import { dashboardAPI, customersAPI } from '../services/api'
 
 const QUICK_ACTIONS = [
@@ -33,6 +36,8 @@ const QUICK_ACTIONS = [
     iconColor: 'text-rose-600',
   },
 ]
+
+const EMPTY_CUSTOMER = { name: '', address: '', email: '', phone: '' }
 
 // Modern KPI Card with gradient progress
 const KPICard = ({ value, label, sublabel, gradient, icon: Icon }) => {
@@ -79,6 +84,9 @@ export default function Dashboard() {
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [editingCustomer, setEditingCustomer] = useState(null)
+  const [customerForm, setCustomerForm] = useState(EMPTY_CUSTOMER)
+  const [savingCustomer, setSavingCustomer] = useState(false)
 
   useEffect(() => {
     fetchDashboardData()
@@ -109,7 +117,36 @@ export default function Dashboard() {
   }
 
   const handleEditCustomer = (customer) => {
-    navigate('/customers')
+    setEditingCustomer(customer)
+    setCustomerForm({
+      name: customer.name || '',
+      address: customer.address || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+    })
+  }
+
+  const closeEditCustomer = () => {
+    setEditingCustomer(null)
+    setCustomerForm(EMPTY_CUSTOMER)
+  }
+
+  const handleSaveCustomer = async () => {
+    if (!editingCustomer || !customerForm.name.trim()) return
+
+    try {
+      setSavingCustomer(true)
+      const updated = await customersAPI.update(editingCustomer.id, customerForm)
+      setCustomers((prev) => prev.map((customer) => (
+        customer.id === editingCustomer.id ? updated : customer
+      )))
+      closeEditCustomer()
+    } catch (err) {
+      alert('Failed to save customer')
+      console.error(err)
+    } finally {
+      setSavingCustomer(false)
+    }
   }
 
   const handleDeleteCustomer = async (customer) => {
@@ -226,14 +263,24 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-0.5 sm:gap-1">
                     <button
-                      onClick={() => handleEditCustomer(customer)}
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        handleEditCustomer(customer)
+                      }}
                       className="rounded-lg p-1.5 sm:p-2 text-brand-500 transition hover:bg-brand-50"
                       title="Edit"
                     >
                       <Edit size={13} className="sm:w-[14px] sm:h-[14px] lg:w-4 lg:h-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteCustomer(customer)}
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        handleDeleteCustomer(customer)
+                      }}
                       className="rounded-lg p-1.5 sm:p-2 text-slate-400 transition hover:bg-slate-50 hover:text-red-500"
                       title="Delete"
                     >
@@ -280,6 +327,43 @@ export default function Dashboard() {
           })}
         </div>
       </section>
+
+      <Modal
+        open={!!editingCustomer}
+        onClose={closeEditCustomer}
+        title="Update Customer"
+        footer={
+          <Button className="w-full" onClick={handleSaveCustomer} disabled={savingCustomer}>
+            {savingCustomer ? 'Saving...' : 'Update'}
+          </Button>
+        }
+      >
+        <FormInput
+          label="Customer Name"
+          value={customerForm.name}
+          onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+          placeholder="Name"
+        />
+        <FormInput
+          label="Address"
+          value={customerForm.address}
+          onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+          placeholder="Address"
+        />
+        <FormInput
+          label="Email"
+          type="email"
+          value={customerForm.email}
+          onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+          placeholder="Email"
+        />
+        <FormInput
+          label="Phone Number"
+          value={customerForm.phone}
+          onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+          placeholder="Phone Number"
+        />
+      </Modal>
     </div>
   )
 }

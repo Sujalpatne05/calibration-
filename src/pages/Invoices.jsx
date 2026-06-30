@@ -203,11 +203,8 @@ export default function Invoices() {
           columns={[
             {
               key: 'sr',
-              header: '#',
-              render: (_, i) => startIndex + i + 1,
-              key: 'sr',
               header: 'Sr',
-              render: (_, i) => i + 1,
+              render: (_, i) => startIndex + i + 1,
               className: 'w-14 text-ink',
               headerClassName: 'text-brand-300',
             },

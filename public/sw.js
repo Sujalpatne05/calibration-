@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-globals */
-const CACHE_NAME = 'sanc-calibration-v1'
+const CACHE_NAME = 'sanc-calibration-v2'
 const urlsToCache = [
   '/',
   '/index.html',
@@ -7,8 +7,15 @@ const urlsToCache = [
   '/src/index.css',
 ]
 
+const isLocalDev = self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1'
+
 // Install event - cache assets
 self.addEventListener('install', (event) => {
+  if (isLocalDev) {
+    self.skipWaiting()
+    return
+  }
+
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('Service Worker: Caching files')
@@ -37,6 +44,11 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
+  if (isLocalDev) {
+    event.respondWith(fetch(event.request))
+    return
+  }
+
   // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
     return

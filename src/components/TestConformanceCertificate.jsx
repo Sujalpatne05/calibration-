@@ -80,7 +80,7 @@ const T = (props) => {
   const legal = firstText(
     source.legalDisclaimer,
     source.legal,
-    'We confirm for specifications and performance as per the supplied item details and applicable internal quality procedures.'
+    'We confirm the specifications and performance for a period of 12 months from the date of commissioning or 18 months from the date of dispatch, whichever is earlier, for manufacturing defects only. We reserve the right of repair or to replace the defective material in parts or in full depending upon the nature of the defect & observation. Furthermore, all warranties cease to apply if the instruction manual is not followed.'
   )
 
   return (

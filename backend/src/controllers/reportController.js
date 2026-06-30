@@ -1,8 +1,44 @@
 import pkg from '@prisma/client';
 import logger from '../config/logger.js';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import os from 'os';
+import path from 'path';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
+const execFileAsync = promisify(execFile);
+
+const chromeCandidates = [
+  process.env.CHROME_PATH,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+].filter(Boolean);
+
+const findChromeExecutable = async () => {
+  for (const candidate of chromeCandidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // Try the next browser path.
+    }
+  }
+  return null;
+};
+
+const safePdfFilename = (value) =>
+  String(value || 'certificate.pdf')
+    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
+    .replace(/\.pdf$/i, '')
+    .replace(/^-+|-+$/g, '') || 'certificate';
 
 const validateJsonField = (data, fieldName, expectedRoot) => {
   if (data[fieldName] === undefined || data[fieldName] === null || data[fieldName] === '') return null;
@@ -38,6 +74,57 @@ const sanitizeReportData = (data) => {
   ].filter(Boolean);
 
   return { data: next, errors };
+};
+
+export const renderReportPdf = async (req, res) => {
+  let tempDir = null;
+
+  try {
+    const { html, filename } = req.body || {};
+
+    if (!html || typeof html !== 'string') {
+      return res.status(400).json({ error: 'Printable HTML is required' });
+    }
+
+    const chromePath = await findChromeExecutable();
+    if (!chromePath) {
+      return res.status(500).json({
+        error: 'Chrome or Edge was not found on the server. Set CHROME_PATH to enable silent PDF export.'
+      });
+    }
+
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sanc-pdf-'));
+    const htmlPath = path.join(tempDir, 'report.html');
+    const pdfPath = path.join(tempDir, 'report.pdf');
+
+    await fs.writeFile(htmlPath, html, 'utf8');
+
+    await execFileAsync(chromePath, [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--run-all-compositor-stages-before-draw',
+      '--virtual-time-budget=1000',
+      '--print-to-pdf-no-header',
+      `--print-to-pdf=${pdfPath}`,
+      `file:///${htmlPath.replace(/\\/g, '/')}`,
+    ], { timeout: 30000 });
+
+    const pdf = await fs.readFile(pdfPath);
+    const cleanFilename = `${safePdfFilename(filename)}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${cleanFilename}"`);
+    res.send(pdf);
+  } catch (error) {
+    logger.error('Render report PDF error:', error);
+    res.status(500).json({ error: 'Failed to render PDF' });
+  } finally {
+    if (tempDir) {
+      fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
 };
 
 const asString = (value, fallback = '') =>
@@ -341,7 +428,7 @@ const buildDummyTestReport = () => ({
   notes:
     'This is to certify that the following material has been checked for Visual, Dimensional and Performance tests and found within accuracy.',
   legalDisclaimer:
-    'We confirm specifications and performance as per supplied item details and applicable internal quality procedures.',
+    'We confirm the specifications and performance for a period of 12 months from the date of commissioning or 18 months from the date of dispatch, whichever is earlier, for manufacturing defects only. We reserve the right of repair or to replace the defective material in parts or in full depending upon the nature of the defect & observation. Furthermore, all warranties cease to apply if the instruction manual is not followed.',
   customer: normalizeCustomer({
     name: 'Dummy Test Customer Pvt. Ltd.',
     phone: '8888888888',

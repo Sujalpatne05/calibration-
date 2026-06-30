@@ -8,21 +8,47 @@ async function main() {
   console.log('Seeding database...');
 
   try {
-    // Create a test user
-    const hashedPassword = await bcrypt.hash('admin123', 10);
-    const user = await prisma.user.upsert({
-      where: { username: 'admin' },
-      update: {},
-      create: {
-        username: 'admin',
-        password: hashedPassword,
-        email: 'admin@sanc.com',
-        fullName: 'Admin User',
-        role: 'admin'
-      }
+    // Create or update the default application user.
+    const hashedPassword = await bcrypt.hash('sanc@123', 10);
+    const sancUser = await prisma.user.findUnique({
+      where: { username: 'sanc' }
     });
+    const legacyUser = sancUser
+      ? null
+      : await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: 'admin' },
+              { email: 'admin@sanc.com' }
+            ]
+          }
+        });
 
-    console.log('✓ Test user created:', user.username);
+    const defaultUserData = {
+      username: 'sanc',
+      password: hashedPassword,
+      email: 'admin@sanc.com',
+      fullName: 'Admin User',
+      role: 'admin'
+    };
+
+    const user = sancUser
+      ? await prisma.user.update({
+          where: { id: sancUser.id },
+          data: {
+            password: hashedPassword,
+            fullName: 'Admin User',
+            role: 'admin'
+          }
+        })
+      : legacyUser
+      ? await prisma.user.update({
+          where: { id: legacyUser.id },
+          data: defaultUserData
+        })
+      : await prisma.user.create({ data: defaultUserData });
+
+    console.log('Default user ready:', user.username);
 
     // Check if customer already exists
     const existingCustomer = await prisma.customer.findFirst({
@@ -39,15 +65,16 @@ async function main() {
           gstin: '27AABCA1234H1Z0'
         }
       });
-      console.log('✓ Customer created:', customer.name);
+      console.log('Customer created:', customer.name);
     } else {
-      console.log('✓ Customer already exists:', existingCustomer.name);
+      console.log('Customer already exists:', existingCustomer.name);
     }
 
     console.log('\nDatabase seeded successfully!');
-    console.log('Test credentials: username: admin, password: admin123');
+    console.log('Default credentials: username: sanc, password: sanc@123');
   } catch (error) {
     console.error('Seed error:', error.message);
+    process.exitCode = 1;
   }
 }
 

@@ -63,6 +63,29 @@ const apiCall = async (endpoint, options = {}) => {
   return response.json()
 }
 
+const apiBlob = async (endpoint, options = {}) => {
+  const token = getToken()
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    throw new Error(`API Error: ${response.statusText}`)
+  }
+
+  return response.blob()
+}
+
 // ===== CUSTOMERS API =====
 export const customersAPI = {
   // GET all customers with optional search
@@ -178,6 +201,9 @@ export const reportsAPI = {
 
   // PUT update report
   update: (id, data) => apiCall(`/reports/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // POST render printable HTML to PDF
+  renderPdf: (data) => apiBlob('/reports/render-pdf', { method: 'POST', body: JSON.stringify(data) }),
 
   // DELETE report
   delete: (id) => apiCall(`/reports/${id}`, { method: 'DELETE' }),

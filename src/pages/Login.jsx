@@ -10,8 +10,8 @@ import { useAuth } from '../hooks/useAuth'
 export default function Login() {
   const navigate = useNavigate()
   const { login: setAuth } = useAuth()
-  const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('admin123')
+  const [username, setUsername] = useState('sanc')
+  const [password, setPassword] = useState('sanc@123')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -115,10 +115,6 @@ export default function Login() {
           >
             {loading ? 'Logging in...' : 'Login'}
           </Button>
-
-          <p className="pt-2 text-center text-xs text-ink-faint">
-            Demo credentials: username: <strong>admin</strong>, password: <strong>admin123</strong>
-          </p>
         </div>
       </div>
     </div>

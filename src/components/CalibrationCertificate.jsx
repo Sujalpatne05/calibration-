@@ -759,20 +759,17 @@ const C = (props) => {
 
     {/* 7 — Remarks */}
     <section className="cc-section">
-      <div className="cc-section-title">Remarks &amp; Notes</div>
+      <div className="cc-section-title">Remarks</div>
       <ol className="cc-remarks">
         <li>
-          The results stated in this certificate relate only to the item
-          calibrated as identified above.
+          This Report Refers only to the particular Item Calibrated at Lab/Site.
         </li>
 
         <li>
-          The due date for next calibration is assigned based on usage,
-          manufacturer recommendation, and customer input.
+          This Certificate shall not be reproduced, except in full unless written permission for the same is obtained from SANC.
         </li>
         <li>
-          All observations were taken under the environmental conditions
-          reported in Section&nbsp;5.
+          Unit under testing is in accuracy
         </li>
 
       </ol>

@@ -4,7 +4,9 @@ import {
   Users,
   Gauge,
   ClipboardCheck,
-  FileText,
+  BarChart3,
+  ReceiptText,
+  Server,
   ChevronRight,
   X,
   Sparkles,
@@ -16,8 +18,9 @@ const NAV = [
   { to: '/customers', label: 'Customers', icon: Users },
   { to: '/instruments', label: 'Instruments', icon: Gauge },
   { to: '/standards', label: 'Standards', icon: ClipboardCheck },
-  { to: '/report', label: 'Report', icon: FileText },
-  { to: '/invoices', label: 'Invoices', icon: FileText },
+  { to: '/report', label: 'Report', icon: BarChart3 },
+  { to: '/invoices', label: 'Invoices', icon: ReceiptText },
+  { to: '/api-status', label: 'API Status', icon: Server },
 ]
 
 export default function Sidebar({ collapsed, mobileOpen, onMobileClose }) {

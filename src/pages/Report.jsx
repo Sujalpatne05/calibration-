@@ -63,6 +63,29 @@ const parseJsonValue = (value) => {
   }
 }
 
+const collectDocumentStyles = () =>
+  Array.from(document.styleSheets)
+    .map((sheet) => {
+      try {
+        return Array.from(sheet.cssRules || []).map((rule) => rule.cssText).join('\n')
+      } catch {
+        return ''
+      }
+    })
+    .filter(Boolean)
+    .join('\n')
+
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 const parseRange = (range) => {
   const matches =
     String(range ?? '')
@@ -470,40 +493,42 @@ export default function Report() {
       exportHost = document.createElement('div')
       exportHost.className = 'pdf-export-host'
       const exportElement = element.cloneNode(true)
+      exportElement.style.width = '210mm'
+      exportElement.style.height = '297mm'
+      exportElement.style.minHeight = '297mm'
+      exportElement.style.maxHeight = '297mm'
+      exportElement.style.margin = '0'
+      exportElement.style.transform = 'none'
       exportHost.appendChild(exportElement)
       document.body.appendChild(exportHost)
 
       await new Promise((resolve) => requestAnimationFrame(resolve))
       await document.fonts?.ready
-
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-
-      const canvas = await html2canvas(exportElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        width: exportElement.scrollWidth,
-        height: exportElement.scrollHeight,
-        windowWidth: Math.max(exportElement.scrollWidth, 1200),
-        windowHeight: exportElement.scrollHeight,
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      })
-
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297)
+      await Promise.all(
+        Array.from(exportElement.querySelectorAll('img')).map((img) => {
+          if (img.complete) return Promise.resolve()
+          return new Promise((resolve) => {
+            img.onload = resolve
+            img.onerror = resolve
+          })
+        })
+      )
 
       const filename = buildCertificatePdfFilename(selectedReport, tab)
-      pdf.save(`${filename}.pdf`)
+      const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <base href="${window.location.origin}/" />
+  <style>${collectDocumentStyles()}</style>
+</head>
+<body class="pdf-export-mode">
+  <div class="report-print-area">${exportElement.outerHTML}</div>
+</body>
+</html>`
+
+      const blob = await reportsAPI.renderPdf({ html, filename })
+      downloadBlob(blob, `${filename}.pdf`)
     } catch (err) {
       console.error('Error generating PDF:', err)
       alert('Failed to generate PDF')

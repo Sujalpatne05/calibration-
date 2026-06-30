@@ -1,20 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bell, Lock, LogOut, Menu, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react'
-import Modal from '../components/Modal'
-import FormInput from '../components/FormInput'
-import Button from '../components/Button'
+import { Bell, LogOut, Menu, PanelLeftClose, PanelLeft, Sparkles } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 
 /**
- * TopNavbar — modern glassmorphic header with gradient title
+ * TopNavbar - modern glassmorphic header with gradient title
  */
 export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) {
   const navigate = useNavigate()
   const { logout } = useAuth()
   const [showNotif, setShowNotif] = useState(false)
-  const [showPwd, setShowPwd] = useState(false)
-  const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' })
 
   const notifications = [
     { id: 1, text: '41 instruments are pending calibration.', time: '2h ago', unread: true },
@@ -110,15 +105,6 @@ export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) 
             )}
           </div>
 
-          {/* Change password */}
-          <button
-            onClick={() => setShowPwd(true)}
-            className="group hidden sm:flex items-center gap-2 rounded-xl bg-gradient-to-br from-white to-slate-50 px-2 py-2 text-sm font-medium text-ink-soft shadow-sm ring-1 ring-slate-200/60 transition hover:shadow-md hover:ring-purple-200 sm:px-3 sm:py-2.5 lg:px-4"
-          >
-            <Lock size={15} className="group-hover:text-purple-600 transition sm:w-[17px] sm:h-[17px]" />
-            <span className="hidden lg:inline group-hover:text-purple-600 transition">Password</span>
-          </button>
-
           {/* Logout with gradient */}
           <button
             onClick={handleLogout}
@@ -129,46 +115,6 @@ export default function TopNavbar({ onToggleSidebar, onOpenMobile, collapsed }) 
           </button>
         </div>
       </div>
-
-      {/* Change password modal */}
-      <Modal
-        open={showPwd}
-        onClose={() => setShowPwd(false)}
-        title="Change password"
-        footer={
-          <Button
-            className="w-full"
-            onClick={() => {
-              setShowPwd(false)
-              setPwd({ current: '', next: '', confirm: '' })
-            }}
-          >
-            Update password
-          </Button>
-        }
-      >
-        <FormInput
-          label="Current password"
-          type="password"
-          value={pwd.current}
-          onChange={(e) => setPwd({ ...pwd, current: e.target.value })}
-          placeholder="••••••••"
-        />
-        <FormInput
-          label="New password"
-          type="password"
-          value={pwd.next}
-          onChange={(e) => setPwd({ ...pwd, next: e.target.value })}
-          placeholder="••••••••"
-        />
-        <FormInput
-          label="Confirm new password"
-          type="password"
-          value={pwd.confirm}
-          onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })}
-          placeholder="••••••••"
-        />
-      </Modal>
     </header>
   )
 }

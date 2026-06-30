@@ -7,6 +7,7 @@ import Instruments from '../pages/Instruments'
 import Standards from '../pages/Standards'
 import Invoices from '../pages/Invoices'
 import Report from '../pages/Report'
+import ApiStatus from '../pages/ApiStatus'
 
 export default function AppRoutes() {
   return (
@@ -22,6 +23,7 @@ export default function AppRoutes() {
         <Route path="/standards" element={<Standards />} />
         <Route path="/report" element={<Report />} />
         <Route path="/invoices" element={<Invoices />} />
+        <Route path="/api-status" element={<ApiStatus />} />
       </Route>
 
       {/* Defaults */}

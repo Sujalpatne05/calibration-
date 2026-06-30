@@ -108,7 +108,7 @@ export default function Instruments() {
 
   const openAdd = () => {
     setEditing(null)
-    setForm({ ...EMPTY, ignored: showIgnored })
+    setForm({ ...EMPTY, ignored: showIgnored, customerId: customers[0]?.id || '' })
     setModalOpen(true)
   }
 
@@ -156,11 +156,21 @@ export default function Instruments() {
     if (!form.name.trim()) return
     try {
       setLoading(true)
+      const payload = {
+        ...form,
+        customerId: form.customerId || customers[0]?.id,
+      }
+
+      if (!payload.customerId) {
+        alert('Please add at least one customer before saving an instrument.')
+        return
+      }
+
       if (editing) {
-        const updated = await instrumentsAPI.update(editing.id, form)
+        const updated = await instrumentsAPI.update(editing.id, payload)
         setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
       } else {
-        const created = await instrumentsAPI.create(form)
+        const created = await instrumentsAPI.create(payload)
         setRows((r) => [created, ...r])
       }
       setModalOpen(false)
@@ -171,10 +181,6 @@ export default function Instruments() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const getCustomerName = (customerId) => {
-    return customers.find((c) => c.id === customerId)?.name || ''
   }
 
   return (
@@ -218,12 +224,6 @@ export default function Instruments() {
           { key: 'make', header: 'Make', className: 'text-ink-soft' },
           { key: 'model', header: 'Model' },
           { key: 'category', header: 'Category', className: 'text-ink-soft' },
-          { 
-            key: 'customerId', 
-            header: 'Customer', 
-            className: 'text-ink-soft max-w-[14rem]',
-            render: (row) => getCustomerName(row.customerId)
-          },
           {
             key: 'actions',
             header: 'Actions',
@@ -558,8 +558,7 @@ export default function Instruments() {
             </div>
           </div>
 
-          {/* Customer */}
-          <div className="w-full">
+          <div className="hidden">
             <label className="mb-1.5 block text-sm font-medium text-ink-soft">Customer</label>
             <select
               value={form.customerId}

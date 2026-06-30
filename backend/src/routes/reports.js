@@ -7,6 +7,7 @@ import {
   getDummyTestReport,
   postDummyCalibrationReport,
   postDummyTestReport,
+  renderReportPdf,
   createReport,
   updateReport,
   deleteReport
@@ -41,6 +42,7 @@ router.get('/dummy/calibration', authenticate, getDummyCalibrationReport);
 router.post('/dummy/calibration', authenticate, postDummyCalibrationReport);
 router.get('/dummy/test', authenticate, getDummyTestReport);
 router.post('/dummy/test', authenticate, postDummyTestReport);
+router.post('/render-pdf', authenticate, renderReportPdf);
 
 /**
  * @swagger

@@ -214,6 +214,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   background: #fff;
   position: relative;
   padding: 8.5mm 8mm 22mm 8mm;
+  box-sizing: border-box;
   box-shadow: 0 10px 40px rgba(11, 46, 94, 0.12);
   overflow: hidden;
   font-family: var(--cc-font-body);
@@ -320,7 +321,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .cc-note-italic { font-size: 6pt; color: var(--cc-muted); margin-top: 2px; font-style: italic; line-height: 1.12; }
 
 /* Remarks */
-.cc-remarks { padding: 4px 6px 4px 18px; background: var(--cc-sky2); border: 1px solid var(--cc-line); border-left: 2px solid var(--cc-cyan); border-radius: 4px; font-size: 6.8pt; line-height: 1.12; }
+.cc-remarks { padding: 4px 6px 4px 18px; background: var(--cc-sky2); border: 1px solid var(--cc-line); border-left: 2px solid var(--cc-cyan); border-radius: 4px; font-size: 6.8pt; line-height: 1.12; list-style: decimal; list-style-position: outside; }
 .cc-remarks li { margin-bottom: 1px; }
 .cc-remarks li:last-child { margin-bottom: 0; }
 
@@ -591,11 +592,57 @@ input[type='date']::-webkit-calendar-picker-indicator {
   left: -10000px;
   top: 0;
   width: 210mm;
+  height: 297mm;
   min-height: 297mm;
+  max-height: 297mm;
   overflow: visible;
   background: #fff;
   pointer-events: none;
   z-index: -1;
+}
+
+.pdf-export-host > .cc-page,
+.pdf-export-host > .tc-page {
+  transform: none !important;
+  transform-origin: top left !important;
+}
+
+.pdf-export-mode .cc-page table,
+.pdf-export-mode .tc-page table,
+.pdf-export-host table {
+  display: table !important;
+  width: 100% !important;
+  table-layout: auto !important;
+  overflow: visible !important;
+  white-space: normal !important;
+}
+
+.pdf-export-mode .cc-page thead,
+.pdf-export-mode .tc-page thead,
+.pdf-export-host thead {
+  display: table-header-group !important;
+}
+
+.pdf-export-mode .cc-page tbody,
+.pdf-export-mode .tc-page tbody,
+.pdf-export-host tbody {
+  display: table-row-group !important;
+}
+
+.pdf-export-mode .cc-page tr,
+.pdf-export-mode .tc-page tr,
+.pdf-export-host tr {
+  display: table-row !important;
+}
+
+.pdf-export-mode .cc-page th,
+.pdf-export-mode .cc-page td,
+.pdf-export-mode .tc-page th,
+.pdf-export-mode .tc-page td,
+.pdf-export-host th,
+.pdf-export-host td {
+  display: table-cell !important;
+  white-space: normal !important;
 }
 
 .pdf-export-mode .cc-page {
@@ -633,6 +680,7 @@ input[type='date']::-webkit-calendar-picker-indicator {
   max-height: 297mm;
   margin: 18px auto;
   background: #fff;
+  box-sizing: border-box;
   box-shadow: 0 6px 24px rgba(0,0,0,.35);
   display: flex;
   flex-direction: column;
