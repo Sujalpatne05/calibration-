@@ -6,7 +6,7 @@ import Button from '../components/Button'
 import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
 import RowActions from '../components/RowActions'
-import { instrumentsAPI, customersAPI } from '../services/api'
+import { instrumentsAPI, customersAPI, standardsAPI } from '../services/api'
 
 const EMPTY = {
   name: '',
@@ -43,6 +43,77 @@ const DEFAULT_MAKES = ['Dwyer', 'Wika', 'Ashcroft', 'Fluke', 'Other']
 const DEFAULT_UNITS = ['inWC', 'Pa', 'PSI', 'psi', 'Bar', '°C', '°F', 'mA', '%']
 const ITEMS_PER_PAGE = 10
 
+const STANDARD_MASTER_BY_KEY = {
+  'ASC-400': { masterName: 'Multifunctional Calibrator', model: 'ASC-400' },
+  'CAL-25050083/ET/01': { masterName: 'Multifunctional Calibrator', model: 'ASC-400' },
+  '68281901172': { masterName: 'Multifunctional Calibrator', model: 'ASC-400' },
+  '477AV-00': { masterName: 'Digital Manometer', model: '477AV-00' },
+  'CAL-25100187/PR/03': { masterName: 'Digital Manometer', model: '477AV-00' },
+  '005TTW': { masterName: 'Digital Manometer', model: '477AV-00' },
+  '477B-1': { masterName: 'Digital Manometer', model: '477B-1' },
+  'CAL-25100187/PR/02': { masterName: 'Digital Manometer', model: '477B-1' },
+  '014L56': { masterName: 'Digital Manometer', model: '477B-1' },
+  '477AV-2': { masterName: 'Digital Manometer', model: '477AV-2' },
+  'CAL-25100187/PR/01': { masterName: 'Digital Manometer', model: '477AV-2' },
+  '005PWD': { masterName: 'Digital Manometer', model: '477AV-2' },
+}
+
+const normalizeKey = (value) => String(value || '').trim().toUpperCase()
+
+const resolveStandardMaster = (standard) => {
+  if (!standard) return null
+
+  const keys = [
+    standard.reportNo,
+    standard.certificateNo,
+    standard.model,
+    standard.instrumentCode,
+    typeof standard.instrumentId === 'string' ? standard.instrumentId : '',
+  ]
+
+  for (const key of keys) {
+    const master = STANDARD_MASTER_BY_KEY[normalizeKey(key)]
+    if (master) return master
+  }
+
+  return null
+}
+
+const decorateInstrumentsWithStandards = (instruments, standards) => {
+  const standardsByInstrument = new Map()
+
+  standards.forEach((standard) => {
+    const master = resolveStandardMaster(standard)
+    if (!master) return
+
+    const keys = [
+      standard.instrumentId,
+      standard.instrumentRef?.id,
+      standard.instrumentRef?.instrumentId,
+    ]
+
+    keys.forEach((key) => {
+      if (key !== undefined && key !== null && key !== '') {
+        standardsByInstrument.set(normalizeKey(key), master)
+      }
+    })
+  })
+
+  return instruments.map((instrument) => {
+    const master =
+      standardsByInstrument.get(normalizeKey(instrument.id)) ||
+      standardsByInstrument.get(normalizeKey(instrument.instrumentId))
+
+    if (!master) return instrument
+
+    return {
+      ...instrument,
+      displayName: master.masterName,
+      displayModel: master.model,
+    }
+  })
+}
+
 export default function Instruments() {
   const [rows, setRows] = useState([])
   const [customers, setCustomers] = useState([])
@@ -66,8 +137,11 @@ export default function Instruments() {
       try {
         setLoading(true)
         setError(null)
-        const data = await instrumentsAPI.getAll(query, showIgnored ? true : null)
-        setRows(data)
+        const [instrumentData, standardData] = await Promise.all([
+          instrumentsAPI.getAll(query, showIgnored ? true : null),
+          standardsAPI.getAll(),
+        ])
+        setRows(decorateInstrumentsWithStandards(instrumentData, standardData))
       } catch (err) {
         setError('Failed to fetch instruments')
         console.error(err)
@@ -219,10 +293,10 @@ export default function Instruments() {
         emptyMessage={loading ? 'Loading...' : 'No instruments to show.'}
         columns={[
           { key: 'sr', header: 'Sr', render: (_, i) => startIndex + i + 1, className: 'text-ink-faint w-12' },
-          { key: 'name', header: 'Instrument', className: 'font-medium' },
+          { key: 'name', header: 'Instrument', className: 'font-medium', render: (r) => r.displayName || r.name },
           { key: 'serial', header: 'Serial', className: 'text-ink-soft' },
           { key: 'make', header: 'Make', className: 'text-ink-soft' },
-          { key: 'model', header: 'Model' },
+          { key: 'model', header: 'Model', render: (r) => r.displayModel || r.model },
           { key: 'category', header: 'Category', className: 'text-ink-soft' },
           {
             key: 'actions',
