@@ -38,9 +38,16 @@ const fmtDate = (d) =>
     : '—'
 
 // Default options for dropdowns (defined outside component to prevent re-renders)
-const DEFAULT_CATEGORIES = ['Gauge', 'Transmitter', 'Switch', 'Pressure', 'Temperature', 'Flow', 'Level', 'Other']
-const DEFAULT_MAKES = ['Dwyer', 'Wika', 'Ashcroft', 'Fluke', 'Other']
-const DEFAULT_UNITS = ['inWC', 'Pa', 'PSI', 'psi', 'Bar', '°C', '°F', 'mA', '%']
+const DEFAULT_CATEGORIES = ['Gauges', 'Transmitter', 'Switches', 'Humidity transmitter']
+const DEFAULT_MAKES = ['Dwyer']
+const DEFAULT_UNITS = ['inWC', 'inwc', 'Pa', 'psi']
+const DEFAULT_STANDARDS = [
+  'Multifunctional Calibrator (68281901172)',
+  'Digital Manometer (005TTW)',
+  'Digital Manometer (014L56)',
+  'Digital Manometer (005PWD)',
+  'Digital Multimeter (QTS-22020169)',
+]
 const ITEMS_PER_PAGE = 10
 
 const STANDARD_MASTER_BY_KEY = {
@@ -266,7 +273,7 @@ export default function Instruments() {
         <SearchBar
           value={query}
           onChange={setQuery}
-          placeholder="Instrument name"
+          placeholder="Search instruments..."
           className="w-full lg:max-w-sm"
         />
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -611,12 +618,21 @@ export default function Instruments() {
           <div>
             <h3 className="mb-3 text-sm font-semibold text-ink">Standard details</h3>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <FormInput
-                label="Instrument Id"
-                value={form.instrumentId}
-                onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
-                placeholder="Instrument Id"
-              />
+              <div className="w-full">
+                <label className="mb-1.5 block text-sm font-medium text-ink-soft">Standard</label>
+                <select
+                  value={form.instrumentId}
+                  onChange={(e) => setForm({ ...form, instrumentId: e.target.value })}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-ink outline-none transition focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
+                >
+                  <option value="">Standard</option>
+                  {DEFAULT_STANDARDS.map((standard) => (
+                    <option key={standard} value={standard}>
+                      {standard}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <FormInput
                 label="Calibration Points"
                 value={form.calibrationPoints}

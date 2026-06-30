@@ -14,7 +14,22 @@ export const getAllInstruments = async (req, res) => {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
         { serial: { contains: search, mode: 'insensitive' } },
-        { make: { contains: search, mode: 'insensitive' } }
+        { make: { contains: search, mode: 'insensitive' } },
+        { model: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } },
+        { series: { contains: search, mode: 'insensitive' } },
+        { instrumentId: { contains: search, mode: 'insensitive' } },
+        { rangeStart: { contains: search, mode: 'insensitive' } },
+        { rangeEnd: { contains: search, mode: 'insensitive' } },
+        { rangeUnit: { contains: search, mode: 'insensitive' } },
+        { accuracy: { contains: search, mode: 'insensitive' } },
+        { accuracyType: { contains: search, mode: 'insensitive' } },
+        { resolution: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
+        { calibrationPoints: { contains: search, mode: 'insensitive' } },
+        { readingAccuracy: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } }
       ];
     }
     
