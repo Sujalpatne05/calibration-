@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileText, ClipboardCheck, Download, Printer, Search, X, PencilLine, Plus, Trash2 } from 'lucide-react'
+import { FileText, ClipboardCheck, Download, Printer, Search, X, PencilLine, Plus, Trash2, RefreshCw } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
 import CalibrationCertificate from '../components/CalibrationCertificate'
 import TestConformanceCertificate from '../components/TestConformanceCertificate'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import FormInput from '../components/FormInput'
-import { reportsAPI } from '../services/api'
+import { erpnextAPI, reportsAPI } from '../services/api'
 
 const TABS = [
   { id: 'calibration', label: 'Calibration Certificate', icon: ClipboardCheck },
@@ -19,13 +19,6 @@ const TABLE_TYPE_OPTIONS = [
   { value: 'switch', label: 'Switch' },
   { value: 'humidityTemperature', label: 'Humidity Temperature' },
   { value: 'humidityHumidity', label: 'Humidity Humidity' },
-]
-
-const DUMMY_REPORT_OPTIONS = [
-  { value: 'gauge', label: 'Gauge' },
-  { value: 'transmitter', label: 'Transmitter' },
-  { value: 'switch', label: 'Switch' },
-  { value: 'humidity', label: 'Humidity' },
 ]
 
 function buildCertificatePdfFilename(report, type) {
@@ -61,6 +54,86 @@ const parseJsonValue = (value) => {
   } catch {
     return value
   }
+}
+
+const compactSpecs = (specs) => specs.filter((spec) => String(spec.value ?? '').trim())
+
+const buildErpReportItems = (items = []) =>
+  items.map((item, index) => ({
+    sr: index + 1,
+    name: item.itemName || item.description || item.itemCode || 'Instrument',
+    qty: item.quantity || 1,
+    specs: compactSpecs([
+      { key: 'ITEM CODE', value: item.itemCode },
+      { key: 'MAKE', value: item.make },
+      { key: 'MODEL', value: item.model },
+      { key: 'RANGE', value: item.range },
+      { key: 'ACCURACY', value: item.accuracy },
+      { key: 'SERIAL NO', value: item.serialNumber },
+    ]),
+  }))
+
+const erpInvoiceToReport = (invoice) => ({
+  id: `erp-${invoice.invoiceNumber || invoice.id || Date.now()}`,
+  tcNumber: invoice.invoiceNumber || invoice.id || '',
+  certificateNo: invoice.invoiceNumber || invoice.id || '',
+  poNumber: invoice.poNumber || '',
+  tcDate: invoice.invoiceDate || invoice.poDate || '',
+  issueDate: invoice.invoiceDate || '',
+  customer: {
+    name: invoice.customerName || invoice.customer || '',
+    address: invoice.customerAddress || '',
+    phone: invoice.customerPhone || '',
+    email: invoice.customerEmail || '',
+  },
+  invoice: {
+    invoiceNumber: invoice.invoiceNumber || '',
+    issueDate: invoice.invoiceDate || '',
+  },
+  items: JSON.stringify(buildErpReportItems(invoice.items || [])),
+  notes: 'This is to certify that the material has been checked for Visual, Dimensional and Performance tests and found within accuracy.',
+  legalDisclaimer:
+    'We confirm the specifications and performance for a period of 12 months from the date of commissioning or 18 months from the date of dispatch, whichever is earlier, for manufacturing defects only. We reserve the right of repair or to replace the defective material in parts or in full depending upon the nature of the defect & observation. Furthermore, all warranties cease to apply if the instruction manual is not followed.',
+  erpSource: invoice,
+})
+
+const parseItems = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'string') return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const erpListTitle = (record) =>
+  record.invoice?.invoiceNumber || record.invoiceNumber || record.tcNumber || record.id || '-'
+
+const erpListCustomer = (record) =>
+  record.customer?.name || record.customerName || record.customer || '-'
+
+const erpListQuantity = (record) => {
+  if (record.totalQuantity) return record.totalQuantity
+  const items = parseItems(record.items)
+  const total = items.reduce((sum, item) => sum + (Number(item.qty ?? item.quantity) || 0), 0)
+  return total || '-'
+}
+
+const reportItems = (record) => parseItems(record.items)
+
+const uniqueReportKey = (record) =>
+  String(record.invoice?.invoiceNumber || record.invoiceNumber || record.certificateNo || record.tcNumber || record.id)
+
+const mergeUniqueReports = (...groups) => {
+  const seen = new Set()
+  return groups.flat().filter((record) => {
+    const key = uniqueReportKey(record)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 const collectDocumentStyles = () =>
@@ -261,7 +334,15 @@ export default function Report() {
   const [error, setError] = useState(null)
   const [readingModalOpen, setReadingModalOpen] = useState(false)
   const [readingSections, setReadingSections] = useState([])
-  const [dummyCase, setDummyCase] = useState('gauge')
+  const [erpInvoices, setErpInvoices] = useState([])
+  const [testSourceQuery, setTestSourceQuery] = useState('')
+  const [erpLoading, setErpLoading] = useState(false)
+  const [erpError, setErpError] = useState('')
+  const [calibrationSources, setCalibrationSources] = useState([])
+  const [calibrationSourceId, setCalibrationSourceId] = useState('')
+  const [calibrationSourceQuery, setCalibrationSourceQuery] = useState('')
+  const [calibrationLoading, setCalibrationLoading] = useState(false)
+  const [calibrationError, setCalibrationError] = useState('')
   const printRef = useRef(null)
 
   useEffect(() => {
@@ -271,6 +352,14 @@ export default function Report() {
 
     return () => clearTimeout(handle)
   }, [tab, searchQuery])
+
+  useEffect(() => {
+    if (tab === 'test') {
+      fetchErpInvoices()
+    } else if (tab === 'calibration') {
+      fetchCalibrationSources()
+    }
+  }, [tab])
 
   const fetchReports = async (search = '') => {
     try {
@@ -297,25 +386,6 @@ export default function Report() {
   const handleClearSelection = () => {
     setSelectedReport(null)
     setSearchQuery('')
-  }
-
-  const loadDummyReport = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const report =
-        tab === 'test'
-          ? await reportsAPI.getDummyTest()
-          : await reportsAPI.getDummyCalibration(dummyCase)
-      setSelectedReport(report)
-      setShowSearchResults(false)
-      setSearchQuery('')
-    } catch (err) {
-      setError('Failed to load dummy report')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
   }
 
   const openReadingsEditor = () => {
@@ -448,17 +518,6 @@ export default function Report() {
           })),
         }
 
-    if (String(selectedReport.id).startsWith('dummy-')) {
-      const updated = {
-        ...selectedReport,
-        readings: JSON.stringify(payload),
-      }
-
-      setSelectedReport(updated)
-      setReadingModalOpen(false)
-      return
-    }
-
     try {
       setLoading(true)
       const updated = await reportsAPI.update(selectedReport.id, {
@@ -538,6 +597,67 @@ export default function Report() {
     }
   }
 
+  const fetchErpInvoices = async () => {
+    try {
+      setErpLoading(true)
+      setErpError('')
+      const data = await erpnextAPI.syncInvoices(50)
+      setErpInvoices(data.reports || [])
+      fetchReports(searchQuery)
+    } catch (err) {
+      setErpError('Failed to sync ERPNext invoices')
+      console.error(err)
+    } finally {
+      setErpLoading(false)
+    }
+  }
+
+  const handleSelectErpInvoice = (invoice) => {
+    setTab('test')
+    setSelectedReport(invoice.type === 'test' ? invoice : erpInvoiceToReport(invoice))
+    setShowSearchResults(false)
+    setSearchQuery('')
+  }
+
+  const fetchCalibrationSources = async () => {
+    try {
+      setCalibrationLoading(true)
+      setCalibrationError('')
+      const sources = await erpnextAPI.getCalibrationSources()
+      setCalibrationSources(sources)
+      setCalibrationSourceId((current) =>
+        current && sources.some((source) => String(source.id) === String(current)) ? current : ''
+      )
+    } catch (err) {
+      setCalibrationError('Failed to load ERPNext PO data for calibration')
+      console.error(err)
+    } finally {
+      setCalibrationLoading(false)
+    }
+  }
+
+  const generateCalibrationFromItem = async (itemIndex) => {
+    if (!calibrationSourceId) return
+
+    try {
+      setCalibrationLoading(true)
+      setCalibrationError('')
+      const report = await erpnextAPI.createCalibrationReport({
+        sourceReportId: Number(calibrationSourceId),
+        itemIndex,
+      })
+      setSelectedReport(report)
+      setShowSearchResults(false)
+      setSearchQuery('')
+      fetchReports(searchQuery)
+    } catch (err) {
+      setCalibrationError(err?.message || 'Failed to generate calibration report')
+      console.error(err)
+    } finally {
+      setCalibrationLoading(false)
+    }
+  }
+
   function printReport() {
     document.body.classList.add('pdf-export-mode')
 
@@ -570,16 +690,102 @@ export default function Report() {
     note: selectedReport.notes,
     legal: selectedReport.legalDisclaimer,
   } : null
+  const selectedCalibrationSource = calibrationSources.find(
+    (source) => String(source.id) === String(calibrationSourceId)
+  )
+  const selectedCalibrationItems = reportItems(selectedCalibrationSource || {})
+  const normalizedCalibrationQuery = calibrationSourceQuery.trim().toLowerCase()
+  const combinedCalibrationSources = mergeUniqueReports(calibrationSources, reports)
+  const filteredCalibrationSources = normalizedCalibrationQuery
+    ? combinedCalibrationSources.filter((source) => {
+        const itemText = reportItems(source)
+          .map((item) =>
+            [
+              item.name,
+              item.title,
+              item.itemName,
+              item.itemCode,
+              item.code,
+              ...(item.specs || []).map((spec) => `${spec.key} ${spec.value}`),
+            ]
+              .filter(Boolean)
+              .join(' ')
+          )
+          .join(' ')
+
+        return [
+          source.invoice?.invoiceNumber,
+          source.invoiceNumber,
+          source.tcNumber,
+          source.certificateNo,
+          source.poNumber,
+          source.customer?.name,
+          source.instrument?.name,
+          source.instrument?.model,
+          source.instrument?.serial,
+          itemText,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedCalibrationQuery)
+      })
+    : []
+  const combinedTestSources = mergeUniqueReports(erpInvoices, reports)
+  const normalizedTestQuery = testSourceQuery.trim().toLowerCase()
+  const filteredTestSources = normalizedTestQuery
+    ? combinedTestSources.filter((source) => {
+        const itemText = reportItems(source)
+          .map((item) =>
+            [
+              item.name,
+              item.title,
+              item.itemName,
+              item.itemCode,
+              item.code,
+              ...(item.specs || []).map((spec) => `${spec.key} ${spec.value}`),
+            ]
+              .filter(Boolean)
+              .join(' ')
+          )
+          .join(' ')
+
+        return [
+          source.invoice?.invoiceNumber,
+          source.invoiceNumber,
+          source.tcNumber,
+          source.certificateNo,
+          source.poNumber,
+          source.customer?.name,
+          source.customerName,
+          itemText,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedTestQuery)
+      })
+    : []
 
   return (
     <div className="report-page w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 lg:grid lg:min-h-screen lg:gap-6 lg:grid-cols-3 lg:space-y-0">
       {/* Sidebar - Search */}
       <div className="report-search-panel lg:col-span-1 w-full max-w-full">
-        <div className="sticky top-0 rounded-xl sm:rounded-2xl bg-white p-4 sm:p-5 lg:p-6 shadow-card ring-1 ring-slate-100 overflow-hidden">
-          <h2 className="mb-3 sm:mb-4 font-display text-base sm:text-lg font-semibold text-ink">Search Reports</h2>
+        <div className="sticky top-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <div className="bg-gradient-to-br from-white via-sky-50/70 to-indigo-50/60 p-4 sm:p-5 lg:p-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-500">
+                  Reports
+                </p>
+                <h2 className="mt-1 font-display text-xl font-semibold text-ink">Find Certificate</h2>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm ring-1 ring-brand-100">
+                <Search size={18} />
+              </div>
+            </div>
 
-          {/* Tabs */}
-          <div className="mb-3 sm:mb-4 flex gap-1.5 sm:gap-2 overflow-x-auto">
+          <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-white/80 p-1 shadow-inner ring-1 ring-slate-200/70">
             {TABS.map((t) => {
               const Icon = t.icon
               return (
@@ -589,108 +795,275 @@ export default function Report() {
                     setTab(t.id)
                     setSelectedReport(null)
                   }}
-                  className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 py-2 sm:px-3 text-xs sm:text-sm font-medium transition whitespace-nowrap ${
+                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-semibold transition ${
                     tab === t.id
-                      ? 'bg-brand-50 text-brand-600 ring-1 ring-brand-200'
-                      : 'bg-slate-50 text-ink-faint hover:bg-slate-100'
+                      ? 'bg-brand-500 text-white shadow-sm'
+                      : 'text-ink-faint hover:bg-white hover:text-ink'
                   }`}
                 >
-                  <Icon size={14} className="sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">{t.label}</span>
+                  <Icon size={15} />
+                  <span>{t.id === 'calibration' ? 'Calibration' : 'Test Certificate'}</span>
                 </button>
               )
             })}
           </div>
 
-          <div className="mb-3 sm:mb-4 rounded-lg sm:rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-2.5 sm:p-3">
-            <p className="mb-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-brand-600">
-              Dummy API Test
-            </p>
-            <div className="flex gap-1.5 sm:gap-2">
-              {tab === 'calibration' ? (
-                <select
-                  value={dummyCase}
-                  onChange={(e) => setDummyCase(e.target.value)}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-ink outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+          </div>
+
+          <div className="p-4 sm:p-5 lg:p-6">
+          {tab === 'calibration' && (
+            <div className="rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50/90 to-white p-3 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-brand-700">
+                    ERPNext Calibration Source
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-faint">ERPNext PO data and saved DB certificates combined</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchCalibrationSources}
+                  disabled={calibrationLoading}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm ring-1 ring-brand-100 transition hover:bg-brand-50 disabled:opacity-50"
+                  aria-label="Refresh ERPNext calibration sources"
                 >
-                  {DUMMY_REPORT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  <RefreshCw size={15} className={calibrationLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {calibrationError ? (
+                <div className="rounded-lg bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700 ring-1 ring-red-100">
+                  {calibrationError}
+                </div>
+              ) : null}
+
+              {calibrationLoading && combinedCalibrationSources.length === 0 ? (
+                <div className="rounded-lg bg-white/70 px-2.5 py-2 text-xs text-ink-faint">
+                  Loading ERPNext PO data...
+                </div>
+              ) : combinedCalibrationSources.length === 0 ? (
+                <div className="rounded-lg bg-white/70 px-2.5 py-2 text-xs text-ink-faint">
+                  No ERPNext PO data or database calibration certificates found.
+                </div>
               ) : (
-                <div className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm text-ink truncate">
-                  Test &amp; Conformance
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search
+                      size={15}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-400"
+                    />
+                    <input
+                      value={calibrationSourceQuery}
+                      onChange={(e) => {
+                        setCalibrationSourceQuery(e.target.value)
+                        setCalibrationSourceId('')
+                      }}
+                      placeholder="Search PO, invoice, customer, item..."
+                      className="w-full rounded-xl border border-brand-100 bg-white py-3 pl-9 pr-3 text-xs font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                    />
+                  </div>
+
+                  {!normalizedCalibrationQuery ? (
+                    <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-brand-100">
+                      Type to search ERPNext PO, invoice, customer, or item.
+                    </div>
+                  ) : filteredCalibrationSources.length === 0 ? (
+                    <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-brand-100">
+                      No matching ERPNext source found.
+                    </div>
+                  ) : (
+                    <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                      {filteredCalibrationSources.map((source) => {
+                        const isSelected = String(source.id) === String(calibrationSourceId)
+                        const isErpSource = calibrationSources.some(
+                          (erpSource) => uniqueReportKey(erpSource) === uniqueReportKey(source)
+                        )
+                        const sourceItems = reportItems(source)
+                        return (
+                          <button
+                            key={`${isErpSource ? 'erp' : 'db'}-${uniqueReportKey(source)}`}
+                            type="button"
+                            onClick={() => {
+                              if (isErpSource) {
+                                setCalibrationSourceId(String(source.id))
+                              } else {
+                                setCalibrationSourceId('')
+                                handleSelectReport(source)
+                              }
+                            }}
+                            className={`w-full rounded-xl p-3 text-left text-xs shadow-sm ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${
+                              isSelected
+                                ? 'bg-brand-50 text-ink ring-brand-300'
+                                : 'bg-white text-ink ring-brand-100 hover:bg-brand-50/70'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-semibold">
+                                {source.invoice?.invoiceNumber || source.tcNumber || source.certificateNo || 'ERPNext Source'}
+                              </span>
+                              <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-100">
+                                {isErpSource
+                                  ? `${sourceItems.length} item${sourceItems.length === 1 ? '' : 's'}`
+                                  : 'DB'}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 truncate text-ink-faint">
+                              {source.customer?.name || 'Customer'}
+                            </p>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <span className="truncate text-[11px] font-medium text-brand-700">
+                                PO: {source.poNumber || '-'}
+                              </span>
+                              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-brand-600">
+                                {isErpSource ? 'ERP + DB' : 'DB'}
+                              </span>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {calibrationSourceId ? (
+                    <div className="border-t border-brand-100 pt-3">
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-brand-700">
+                        Purchased Instruments
+                      </p>
+                      <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                        {selectedCalibrationItems.length === 0 ? (
+                          <div className="rounded-lg bg-white/70 px-2.5 py-2 text-xs text-ink-faint">
+                            No purchased instruments found in selected PO.
+                          </div>
+                        ) : (
+                          selectedCalibrationItems.map((item, index) => (
+                            <button
+                              key={`${item.name || item.title || 'item'}-${index}`}
+                              type="button"
+                              onClick={() => generateCalibrationFromItem(index)}
+                              disabled={calibrationLoading}
+                              className="w-full rounded-xl bg-white p-3 text-left text-xs shadow-sm ring-1 ring-brand-100 transition hover:-translate-y-0.5 hover:bg-brand-50/70 hover:shadow-md disabled:opacity-50"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="truncate font-semibold text-ink">
+                                  {item.name || item.title || item.itemName || 'Instrument'}
+                                </span>
+                                <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700">
+                                  Qty {item.qty || item.quantity || '-'}
+                                </span>
+                              </div>
+                              {item.specs?.length ? (
+                                <p className="mt-0.5 truncate text-ink-faint">
+                                  {item.specs.map((spec) => `${spec.key}: ${spec.value}`).join(' | ')}
+                                </p>
+                              ) : null}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               )}
-              <Button type="button" size="sm" onClick={loadDummyReport} disabled={loading} className="whitespace-nowrap">
-                Load
-              </Button>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 sm:pl-3">
-              <Search size={14} className="text-ink-faint sm:w-4 sm:h-4" />
-            </div>
-            <input
-              type="text"
-              placeholder="Certificate no, TC no..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setShowSearchResults(true)
-              }}
-              className="w-full rounded-lg sm:rounded-xl border border-slate-200 bg-slate-50 pl-8 sm:pl-9 pr-2.5 sm:pr-3 py-2 sm:py-2.5 text-xs sm:text-sm outline-none transition placeholder:text-ink-faint focus:border-brand-400 focus:bg-white focus:ring-2 focus:ring-brand-100"
-            />
-          </div>
-
-          {/* Search Results */}
-          {showSearchResults && searchQuery && (
-            <div className="mt-2.5 sm:mt-3 max-h-64 space-y-1.5 sm:space-y-2 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-1.5 sm:p-2">
-              {loading ? (
-                <div className="py-2 text-center text-xs sm:text-sm text-ink-faint">Loading...</div>
-              ) : filteredReports.length === 0 ? (
-                <div className="py-2 text-center text-xs sm:text-sm text-ink-faint">No reports found</div>
-              ) : (
-                filteredReports.map((report) => (
-                  <button
-                    key={report.id}
-                    onClick={() => handleSelectReport(report)}
-                    className="w-full rounded-lg bg-white p-1.5 sm:p-2 text-left text-xs sm:text-sm hover:bg-slate-100"
-                  >
-                    <p className="font-medium text-ink truncate">{report.certificateNo || report.tcNumber}</p>
-                    <p className="text-[10px] sm:text-xs text-ink-faint truncate">{report.customer?.name}</p>
-                  </button>
-                ))
-              )}
             </div>
           )}
 
-          {/* Recent Reports */}
-          {!showSearchResults && (
-            <div className="mt-3 sm:mt-4 space-y-1.5 sm:space-y-2">
-              <p className="text-[10px] sm:text-xs font-medium text-ink-faint">Recent</p>
-              {loading ? (
-                <div className="text-xs sm:text-sm text-ink-faint">Loading...</div>
-              ) : reports.length === 0 ? (
-                <div className="text-xs sm:text-sm text-ink-faint">No reports available</div>
-              ) : (
-                reports.slice(0, 5).map((report) => (
-                  <button
-                    key={report.id}
-                    onClick={() => handleSelectReport(report)}
-                    className="w-full rounded-lg bg-slate-50 p-1.5 sm:p-2 text-left text-xs sm:text-sm hover:bg-slate-100"
-                  >
-                    <p className="font-medium text-ink truncate">{report.certificateNo || report.tcNumber}</p>
-                    <p className="text-[10px] sm:text-xs text-ink-faint truncate">{report.customer?.name}</p>
-                  </button>
-                ))
-              )}
+          {tab === 'test' && (
+            <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/90 to-white p-3 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">
+                    ERPNext Test Certificate Source
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-faint">ERPNext invoices and saved DB reports combined</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchErpInvoices}
+                  disabled={erpLoading}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-50 disabled:opacity-50"
+                  aria-label="Refresh ERPNext invoices"
+                >
+                  <RefreshCw size={15} className={erpLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {erpError ? (
+                  <div className="rounded-lg bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700 ring-1 ring-red-100">
+                    {erpError}
+                  </div>
+                ) : null}
+
+                <div className="relative">
+                  <Search
+                    size={15}
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500"
+                  />
+                  <input
+                    value={testSourceQuery}
+                    onChange={(e) => setTestSourceQuery(e.target.value)}
+                    placeholder="Search invoice, PO, customer, item..."
+                    className="w-full rounded-xl border border-emerald-100 bg-white py-3 pl-9 pr-3 text-xs font-medium text-ink shadow-sm outline-none transition placeholder:text-ink-faint focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                  />
+                </div>
+
+                {erpLoading ? (
+                  <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-emerald-100">
+                    Syncing ERPNext invoices into database...
+                  </div>
+                ) : combinedTestSources.length === 0 ? (
+                  <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-emerald-100">
+                    No ERPNext or database test certificates found.
+                  </div>
+                ) : !normalizedTestQuery ? (
+                  <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-emerald-100">
+                    Type to search ERPNext invoice, PO, customer, or item.
+                  </div>
+                ) : filteredTestSources.length === 0 ? (
+                  <div className="rounded-xl bg-white/70 px-3 py-3 text-xs text-ink-faint ring-1 ring-emerald-100">
+                    No matching test certificate source found.
+                  </div>
+                ) : (
+                  <div className="max-h-72 space-y-1.5 overflow-y-auto">
+                    {filteredTestSources.map((invoice) => {
+                      const isErpSynced = erpInvoices.some(
+                        (erpInvoice) => uniqueReportKey(erpInvoice) === uniqueReportKey(invoice)
+                      )
+
+                      return (
+                        <button
+                          key={uniqueReportKey(invoice)}
+                          type="button"
+                          onClick={() => handleSelectErpInvoice(invoice)}
+                          className="w-full rounded-xl bg-white p-3 text-left text-xs shadow-sm ring-1 ring-emerald-100 transition hover:-translate-y-0.5 hover:bg-emerald-50 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="truncate font-semibold text-ink">
+                              {erpListTitle(invoice)}
+                            </span>
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                              Qty {erpListQuantity(invoice)}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 truncate text-ink-soft">
+                            {erpListCustomer(invoice)}
+                          </p>
+                          <div className="mt-0.5 flex items-center justify-between gap-2 text-ink-faint">
+                            <span className="truncate">PO: {invoice.poNumber || '-'}</span>
+                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
+                              {isErpSynced ? 'ERP + DB' : 'DB'}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
+
+          </div>
         </div>
       </div>
 

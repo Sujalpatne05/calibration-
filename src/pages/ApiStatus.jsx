@@ -6,12 +6,14 @@ import {
   Database,
   FileText,
   RefreshCw,
+  Save,
   Server,
   ShieldCheck,
   Wifi,
   XCircle,
 } from 'lucide-react'
 import Button from '../components/Button'
+import { erpnextAPI } from '../services/api'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const ERP_PO_API_URL = import.meta.env.VITE_ERPNEXT_PO_API_URL || `${API_BASE}/erpnext/purchase-orders`
@@ -118,8 +120,12 @@ const normalizePurchaseOrders = (payload) => {
   return rawRows.map((po, index) => ({
     id: po.id || po.name || po.poNumber || po.purchase_order || index,
     poNumber: po.poNumber || po.po_number || po.purchase_order || po.name || '-',
-    poDate: po.poDate || po.po_date || po.transaction_date || po.date || po.creation || '',
-    supplier: po.supplier || po.customer || po.company || '-',
+    poDate: po.poDate || po.po_date || po.transaction_date || po.purchase_date || '',
+    customer: po.customer || po.customerName || po.customer_name || po.company || '-',
+    invoiceNumber: po.invoiceNumber || po.invoice_number || po.name || '-',
+    invoiceDate: po.invoiceDate || po.invoice_date || po.posting_date || po.date || '',
+    quantity: po.totalQuantity || po.quantity || po.qty || '-',
+    itemCount: po.itemCount || po.items?.length || 0,
     status: po.status || po.workflow_state || po.docstatus || '-',
   }))
 }
@@ -182,6 +188,8 @@ export default function ApiStatus() {
     error: '',
   })
   const [loading, setLoading] = useState(true)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState(null)
   const [lastChecked, setLastChecked] = useState(null)
   const [poPage, setPoPage] = useState(1)
 
@@ -240,7 +248,10 @@ export default function ApiStatus() {
     const erpStarted = performance.now()
     const erpPromise = fetch(ERP_PO_API_URL, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
     })
       .then(async (response) => {
         const ms = Math.round(performance.now() - erpStarted)
@@ -277,6 +288,26 @@ export default function ApiStatus() {
     setLoading(false)
   }
 
+  const syncErpInvoices = async () => {
+    try {
+      setSyncing(true)
+      setSyncResult(null)
+      const result = await erpnextAPI.syncInvoices(50)
+      setSyncResult({
+        type: 'success',
+        message: `Synced ${result.saved || 0} of ${result.fetched || 0} ERPNext invoices into DB.`,
+      })
+      await runChecks()
+    } catch (error) {
+      setSyncResult({
+        type: 'error',
+        message: error?.message || 'Failed to sync ERPNext invoices.',
+      })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   useEffect(() => {
     runChecks()
   }, [])
@@ -302,11 +333,29 @@ export default function ApiStatus() {
             </div>
           </div>
 
-          <Button onClick={runChecks} disabled={loading} className="w-full sm:w-auto">
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button onClick={syncErpInvoices} disabled={syncing || loading} variant="secondary" className="w-full sm:w-auto">
+              <Save size={18} className={syncing ? 'animate-pulse' : ''} />
+              {syncing ? 'Syncing...' : 'Sync ERP'}
+            </Button>
+            <Button onClick={runChecks} disabled={loading || syncing} className="w-full sm:w-auto">
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {syncResult && (
+          <div
+            className={`mt-4 rounded-lg px-3 py-2 text-sm font-medium ring-1 ${
+              syncResult.type === 'success'
+                ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                : 'bg-red-50 text-red-700 ring-red-100'
+            }`}
+          >
+            {syncResult.message}
+          </div>
+        )}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl bg-gradient-to-br from-brand-50 to-purple-50 p-4">
@@ -382,8 +431,10 @@ export default function ApiStatus() {
               <tr className="border-b border-slate-200 text-xs uppercase text-ink-faint">
                 <th className="px-3 py-3 font-semibold">SR</th>
                 <th className="px-3 py-3 font-semibold">PO Number</th>
-                <th className="px-3 py-3 font-semibold">PO Date</th>
                 <th className="px-3 py-3 font-semibold">Customer</th>
+                <th className="px-3 py-3 font-semibold">Invoice No</th>
+                <th className="px-3 py-3 font-semibold">Invoice Date</th>
+                <th className="px-3 py-3 font-semibold">Qty</th>
                 <th className="px-3 py-3 font-semibold">ERP Status</th>
                 <th className="px-3 py-3 font-semibold">API</th>
               </tr>
@@ -394,8 +445,13 @@ export default function ApiStatus() {
                   <tr key={po.id} className="border-b border-slate-100 last:border-0">
                     <td className="px-3 py-3 text-ink-faint">{poStartIndex + index + 1}</td>
                     <td className="px-3 py-3 font-semibold text-ink">{po.poNumber}</td>
-                    <td className="px-3 py-3 text-ink-soft">{fmtDate(po.poDate)}</td>
-                    <td className="px-3 py-3 text-ink-soft">{po.supplier}</td>
+                    <td className="px-3 py-3 text-ink-soft">{po.customer}</td>
+                    <td className="px-3 py-3 text-ink-soft">{po.invoiceNumber}</td>
+                    <td className="px-3 py-3 text-ink-soft">{fmtDate(po.invoiceDate || po.poDate)}</td>
+                    <td className="px-3 py-3 text-ink-soft">
+                      {po.quantity}
+                      {po.itemCount ? <span className="ml-1 text-xs text-ink-faint">({po.itemCount} items)</span> : null}
+                    </td>
                     <td className="px-3 py-3 text-ink-soft">{po.status}</td>
                     <td className="px-3 py-3">
                       <StatusPill status={erpPo.status} />
@@ -404,7 +460,7 @@ export default function ApiStatus() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-ink-faint">
+                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-ink-faint">
                     No PO data received. When the customer ERPNext API is online, purchase orders will appear here.
                   </td>
                 </tr>

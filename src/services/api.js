@@ -45,6 +45,13 @@ const apiCall = async (endpoint, options = {}) => {
   })
 
   if (!response.ok) {
+    let errorBody = null
+    try {
+      errorBody = await response.json()
+    } catch {
+      errorBody = null
+    }
+
     if (response.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
@@ -56,8 +63,9 @@ const apiCall = async (endpoint, options = {}) => {
     console.error(`[API] Error [${response.status}]: ${endpoint}`, {
       token: token ? `present (${token.length} chars)` : 'missing',
       status: response.statusText,
+      detail: errorBody?.detail || errorBody?.error,
     })
-    throw new Error(`API Error: ${response.statusText}`)
+    throw new Error(errorBody?.detail || errorBody?.error || `API Error: ${response.statusText}`)
   }
 
   return response.json()
@@ -170,6 +178,16 @@ export const invoicesAPI = {
   },
 }
 
+// ===== ERPNEXT API =====
+export const erpnextAPI = {
+  getPurchaseOrders: (limit = 50) => apiCall(`/erpnext/purchase-orders?limit=${encodeURIComponent(limit)}`),
+  syncInvoices: (limit = 50) =>
+    apiCall(`/erpnext/sync-invoices?limit=${encodeURIComponent(limit)}`, { method: 'POST' }),
+  getCalibrationSources: () => apiCall('/erpnext/calibration-sources'),
+  createCalibrationReport: (data) =>
+    apiCall('/erpnext/calibration-report', { method: 'POST', body: JSON.stringify(data) }),
+}
+
 // ===== REPORTS API =====
 export const reportsAPI = {
   // GET all reports with optional type filter and search
@@ -184,21 +202,6 @@ export const reportsAPI = {
 
   // GET single report by ID
   getById: (id) => apiCall(`/reports/${id}`),
-
-  // GET dummy calibration report for format/calculation testing
-  getDummyCalibration: (caseName = 'gauge') =>
-    apiCall(`/reports/dummy/calibration?case=${encodeURIComponent(caseName)}`),
-
-  // POST custom dummy calibration payload for contract testing
-  postDummyCalibration: (data) =>
-    apiCall('/reports/dummy/calibration', { method: 'POST', body: JSON.stringify(data) }),
-
-  // GET dummy Test & Conformance report for format testing
-  getDummyTest: () => apiCall('/reports/dummy/test'),
-
-  // POST custom dummy Test & Conformance payload for contract testing
-  postDummyTest: (data) =>
-    apiCall('/reports/dummy/test', { method: 'POST', body: JSON.stringify(data) }),
 
   // POST create new report
   create: (data) => apiCall('/reports', { method: 'POST', body: JSON.stringify(data) }),

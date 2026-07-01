@@ -199,6 +199,9 @@ const inferReadingType = (source, payload) => {
 const calculateRows = (rows, type, payload, source) => {
   const payloadHighestRange = numberValue(payload?.highestRange)
   const sourceHighestRange = parseRangeEnd(source.instrumentRange)
+  const payloadRangeStart = numberValue(payload?.rangeStart)
+  const sourceRangeStart = parseRangeStart(source.instrumentRange)
+  const rangeStart = payloadRangeStart ?? sourceRangeStart ?? 0
   const rowHighestRange = Math.max(
     0,
     ...rows
@@ -210,13 +213,17 @@ const calculateRows = (rows, type, payload, source) => {
     (sourceHighestRange && sourceHighestRange > 0 ? sourceHighestRange : null) ??
     (rowHighestRange && rowHighestRange > 0 ? rowHighestRange : null) ??
     displayRangeFallback(type)
+  const rangeSpan =
+    highestRange !== null && highestRange !== rangeStart
+      ? highestRange - rangeStart
+      : highestRange || displayRangeFallback(type)
 
   return rows.map((row) => {
     const set = firstPresent(row.set, row.master, row.calibrationPoint, row.point, '')
     const setNumber = numberValue(set)
     const expectedMANumber =
-      highestRange && setNumber !== null
-        ? 4 + (16 / highestRange) * setNumber
+      rangeSpan && setNumber !== null
+        ? 4 + (16 / rangeSpan) * (setNumber - rangeStart)
         : setNumber === 0 &&
             (type === 'transmitter' ||
               type === 'humidityTemperature' ||
@@ -238,8 +245,8 @@ const calculateRows = (rows, type, payload, source) => {
       expectedMANumber
     const correspondingValueNumber =
       numberValue(row.correspondingValue ?? row.correspondingPressure ?? row.uucReading) ??
-      (convertedReading && highestRange && meanNumber !== null
-        ? (meanNumber - 4) * (highestRange / 16)
+      (convertedReading && rangeSpan && meanNumber !== null
+        ? (meanNumber - 4) * (rangeSpan / 16) + rangeStart
         : convertedReading && setNumber === 0 && meanNumber === 4
           ? 0
           : type === 'gauge' || type === 'switch' || type === 'generic'
@@ -569,10 +576,15 @@ const C = (props) => {
     approved_by_name = source.approvedByName || 'Prashant Patel',
     approved_by_designation = source.approvedByDesignation || 'Lab Incharge',
   } = normalized
+  const totalReadingRows = sections.reduce(
+    (sum, section) => sum + (section.rows?.length || 0),
+    0
+  )
+  const useDenseLayout = sections.length > 1 || totalReadingRows > 7
 
   return (
   <article
-    className={`cc-page ${sections.length > 1 ? 'cc-page-dense' : ''}`}
+    className={`cc-page ${useDenseLayout ? 'cc-page-dense' : ''}`}
     role="document"
     aria-label="Calibration Certificate"
   >

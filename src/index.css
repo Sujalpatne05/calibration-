@@ -363,32 +363,30 @@ input[type='date']::-webkit-calendar-picker-indicator {
 
 /* Dense one-page calibration mode for long certificates such as humidity. */
 .cc-page.cc-page-dense {
-  padding: 5.5mm 6mm 15mm 6mm;
-  font-size: 6.7pt;
-  line-height: 1.08;
+  padding: 7mm 7mm 16mm 7mm;
+  font-size: 6.8pt;
+  line-height: 1.1;
 }
 .cc-page-dense .cc-letterhead {
-  grid-template-columns: 42px 1fr auto;
-  gap: 7px;
-  padding-bottom: 3px;
+  grid-template-columns: 78px 1fr auto;
+  gap: 14px;
+  padding: 8px 0 7px;
 }
 .cc-page-dense .cc-logo,
 .cc-page-dense .cc-logo svg {
-  width: 42px;
-  height: 42px;
+  width: 78px;
+  height: 78px;
 }
-.cc-page-dense .cc-co-name { font-size: 10pt; line-height: 1; }
-.cc-page-dense .cc-co-sub { font-size: 6.4pt; margin-top: 0; }
+.cc-page-dense .cc-co-name { font-size: 14pt; line-height: 1.06; }
+.cc-page-dense .cc-co-sub { font-size: 8.6pt; margin-top: 1px; }
 .cc-page-dense .cc-head-meta { font-size: 5.9pt; line-height: 1.1; }
 .cc-page-dense .cc-meta-label { font-size: 5.4pt; }
 .cc-page-dense .cc-meta-value { font-size: 6.3pt; }
 .cc-page-dense .cc-head-rule { height: 1.5px; margin-top: 1px; }
-.cc-page-dense .cc-title-block { margin: 1px 0 1px; padding: 0; }
-.cc-page-dense .cc-eyebrow,
-.cc-page-dense .cc-title,
-.cc-page-dense .cc-title-ornament {
-  display: none;
-}
+.cc-page-dense .cc-title-block { margin: 2px 0 2px; padding: 0; }
+.cc-page-dense .cc-title { display: block; font-size: 13.5pt; line-height: 1; margin-top: 1px; }
+.cc-page-dense .cc-title-ornament { display: inline-flex; margin-top: 1px; }
+.cc-page-dense .cc-title-ornament span { width: 28px; }
 .cc-page-dense .cc-section { margin-top: 4px; }
 .cc-page-dense .cc-section-title {
   font-size: 5.8pt;
@@ -452,20 +450,28 @@ input[type='date']::-webkit-calendar-picker-indicator {
 }
 .cc-page-dense .cc-remarks li { margin-bottom: 0; }
 .cc-page-dense .cc-sign-grid {
-  grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
-  gap: 5px;
-  margin-top: 1px;
+  grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr);
+  gap: 9px;
+  margin-top: 3mm;
+  margin-bottom: 2mm;
+  min-height: 30mm;
 }
-.cc-page-dense .cc-sign-cell { padding: 2px 4px 1px; }
-.cc-page-dense .cc-role { font-size: 5pt; }
+.cc-page-dense .cc-sign-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 30mm;
+  padding: 4px 6px 3px;
+}
+.cc-page-dense .cc-role { font-size: 5.8pt; }
 .cc-page-dense .cc-sign-space { height: 9px; margin: 1px auto; }
-.cc-page-dense .cc-sign-img { height: 22px; max-width: 140px; margin: 2px auto 1px; }
-.cc-page-dense .cc-sign-name { font-size: 5.8pt; }
-.cc-page-dense .cc-sign-desig { font-size: 5pt; }
-.cc-page-dense .cc-stamp-cell { min-height: 38px; }
+.cc-page-dense .cc-sign-img { height: 43px; max-width: 190px; margin: 3px auto 1px; }
+.cc-page-dense .cc-sign-name { font-size: 6.8pt; }
+.cc-page-dense .cc-sign-desig { font-size: 5.8pt; }
+.cc-page-dense .cc-stamp-cell { min-height: 30mm; }
 .cc-page-dense .cc-stamp-img {
-  width: 72px;
-  max-height: 40px;
+  width: 110px;
+  max-height: 78px;
   transform: translateY(0);
 }
 .cc-page-dense .cc-footer-wrap { height: 13mm; }

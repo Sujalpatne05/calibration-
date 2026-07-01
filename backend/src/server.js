@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import logger from './config/logger.js';
 import swaggerSpec from './config/swagger.js';
 import { handleErrors } from './middleware/validation.js';
+import { startErpNextAutoSync } from './services/erpnextScheduler.js';
 
 import authRoutes from './routes/auth.js';
 import customerRoutes from './routes/customers.js';
@@ -14,6 +15,7 @@ import standardRoutes from './routes/standards.js';
 import invoiceRoutes from './routes/invoices.js';
 import reportRoutes from './routes/reports.js';
 import dashboardRoutes from './routes/dashboard.js';
+import erpnextRoutes from './routes/erpnext.js';
 
 dotenv.config();
 
@@ -52,6 +54,7 @@ app.use('/standards', standardRoutes);
 app.use('/invoices', invoiceRoutes);
 app.use('/reports', reportRoutes);
 app.use('/dashboard', dashboardRoutes);
+app.use('/erpnext', erpnextRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -70,4 +73,5 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`);
   logger.info(`API Docs available at http://localhost:${PORT}/api-docs`);
+  startErpNextAutoSync();
 });

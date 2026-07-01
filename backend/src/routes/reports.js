@@ -3,10 +3,6 @@ import { authenticate } from '../middleware/auth.js';
 import {
   getAllReports,
   getReportById,
-  getDummyCalibrationReport,
-  getDummyTestReport,
-  postDummyCalibrationReport,
-  postDummyTestReport,
   renderReportPdf,
   createReport,
   updateReport,
@@ -38,10 +34,6 @@ const router = express.Router();
  */
 router.get('/', authenticate, getAllReports);
 
-router.get('/dummy/calibration', authenticate, getDummyCalibrationReport);
-router.post('/dummy/calibration', authenticate, postDummyCalibrationReport);
-router.get('/dummy/test', authenticate, getDummyTestReport);
-router.post('/dummy/test', authenticate, postDummyTestReport);
 router.post('/render-pdf', authenticate, renderReportPdf);
 
 /**
