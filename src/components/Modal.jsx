@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 /**
@@ -19,9 +20,9 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] overflow-y-auto py-8 px-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden p-4"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -33,10 +34,10 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
       />
 
       {/* Centering wrapper */}
-      <div className="relative z-10 flex min-h-full items-start justify-center pt-16">
+      <div className="relative z-10 flex w-full items-center justify-center">
         {/* Panel */}
         <div
-          className={`relative w-full ${maxWidth} animate-scale-in rounded-2xl bg-white shadow-soft mb-8 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden`}
+          className={`relative w-full ${maxWidth} animate-scale-in rounded-2xl bg-white shadow-soft flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden`}
         >
           <div className="flex items-start justify-between p-6 pb-4 flex-shrink-0">
             <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
@@ -56,6 +57,7 @@ export default function Modal({ open, onClose, title, children, footer, maxWidth
           {footer && <div className="p-6 pt-0 flex-shrink-0">{footer}</div>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
