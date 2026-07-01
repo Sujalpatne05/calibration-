@@ -9,7 +9,7 @@ const getErpConfig = () => ({
   authScheme: (process.env.ERPNEXT_AUTH_SCHEME || 'basic').toLowerCase(),
 });
 
-const buildAuthHeader = ({ apiKey, apiSecret, authScheme }) => {
+const buildAuthHeader = ({ apiKey, apiSecret, authScheme = 'basic' }) => {
   if (!apiKey || !apiSecret) return null;
 
   if (authScheme === 'token') {
@@ -19,53 +19,70 @@ const buildAuthHeader = ({ apiKey, apiSecret, authScheme }) => {
   return `Basic ${Buffer.from(`${apiKey}:${apiSecret}`).toString('base64')}`;
 };
 
+const authSchemeAttempts = (authScheme = 'basic') => {
+  if (authScheme === 'auto') return ['basic', 'token'];
+  return authScheme === 'token' ? ['token', 'basic'] : ['basic', 'token'];
+};
+
 const erpFetch = async (path, options = {}) => {
   const config = getErpConfig();
-  const authHeader = buildAuthHeader(config);
+  const attempts = authSchemeAttempts(config.authScheme);
 
-  if (!authHeader) {
+  if (!buildAuthHeader({ ...config, authScheme: attempts[0] })) {
     const error = new Error('ERPNext API credentials are not configured');
     error.statusCode = 500;
     throw error;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), Number(process.env.ERPNEXT_TIMEOUT_MS || 12000));
+  let lastUnauthorizedError = null;
 
-  try {
-    const response = await fetch(`${config.baseUrl}${path}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        Authorization: authHeader,
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...options.headers,
-      },
-    });
+  for (const authScheme of attempts) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), Number(process.env.ERPNEXT_TIMEOUT_MS || 12000));
 
-    const text = await response.text();
-    let payload = null;
+    try {
+      const response = await fetch(`${config.baseUrl}${path}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          Authorization: buildAuthHeader({ ...config, authScheme }),
+          ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          ...options.headers,
+        },
+      });
 
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = { raw: text };
+      const text = await response.text();
+      let payload = null;
+
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = { raw: text };
+        }
       }
-    }
 
-    if (!response.ok) {
-      const error = new Error(payload?.exception || payload?.message || response.statusText || 'ERPNext request failed');
-      error.statusCode = response.status;
-      error.payload = payload;
-      throw error;
-    }
+      if (!response.ok) {
+        const error = new Error(payload?.exception || payload?.message || response.statusText || 'ERPNext request failed');
+        error.statusCode = response.status;
+        error.payload = payload;
 
-    return { response, payload };
-  } finally {
-    clearTimeout(timeout);
+        if (response.status === 401 && authScheme !== attempts[attempts.length - 1]) {
+          lastUnauthorizedError = error;
+          continue;
+        }
+
+        throw error;
+      }
+
+      return { response, payload };
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  throw lastUnauthorizedError || new Error('ERPNext request failed');
 };
 
 const firstValue = (...values) => {

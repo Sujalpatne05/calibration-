@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
+import * as ReactDOMServer from 'react-dom/server'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Download, FileArchive, FolderClosed, Search, Tag, X, RefreshCw } from 'lucide-react'
 import DataTable from '../components/DataTable'
 import Button from '../components/Button'
 import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
-import { invoicesAPI } from '../services/api'
+import CalibrationCertificate from '../components/CalibrationCertificate'
+import TestConformanceCertificate from '../components/TestConformanceCertificate'
+import { invoicesAPI, reportsAPI } from '../services/api'
 
 const fmtDate = (value) => {
   if (!value) return '-'
@@ -18,6 +21,33 @@ const fmtDate = (value) => {
 const csvEscape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
 const ITEMS_PER_PAGE = 10
 
+const safeFileName = (value, fallback = 'file') =>
+  String(value || fallback)
+    .replace(/[<>:"/\\|?*]+/g, '-')
+    .replace(/\s+/g, '_')
+    .replace(/^-+|-+$/g, '') || fallback
+
+const buildCertificatePdfFilename = (report) => {
+  const prefix = report?.type === 'test' ? 'SANC-TC' : 'SANC-CC'
+  const certificateNumber = report?.type === 'test'
+    ? report?.tcNumber || report?.certificateNo
+    : report?.certificateNo || report?.tcNumber
+
+  return `${prefix}-${safeFileName(String(certificateNumber || 'certificate').replace(new RegExp(`^${prefix}-`, 'i'), ''), 'certificate')}`
+}
+
+const collectDocumentStyles = () =>
+  Array.from(document.styleSheets)
+    .map((sheet) => {
+      try {
+        return Array.from(sheet.cssRules || []).map((rule) => rule.cssText).join('\n')
+      } catch {
+        return ''
+      }
+    })
+    .filter(Boolean)
+    .join('\n')
+
 const downloadTextFile = (filename, content, type) => {
   const blob = new Blob([content], { type })
   const link = document.createElement('a')
@@ -25,6 +55,186 @@ const downloadTextFile = (filename, content, type) => {
   link.download = filename
   link.click()
   URL.revokeObjectURL(link.href)
+}
+
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+const parseItems = (value) => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'string') return []
+
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const getCertificateStatus = (invoice) => {
+  const reports = Array.isArray(invoice?.reports) ? invoice.reports : []
+  const testReports = reports.filter((report) => report.type === 'test')
+  const calibrationReports = reports.filter((report) => report.type === 'calibration')
+  const testItems = testReports.flatMap((report) => parseItems(report.items))
+  const totalItems = Math.max(testItems.length, calibrationReports.length, 1)
+  const calibrationDone = Math.min(calibrationReports.length, totalItems)
+  const testDone = testReports.length > 0
+  const allDone = calibrationDone >= totalItems && testDone
+
+  return {
+    totalItems,
+    calibrationDone,
+    testDone,
+    allDone,
+    label: allDone ? 'Done' : 'Pending',
+  }
+}
+
+const crcTable = (() => {
+  const table = new Uint32Array(256)
+  for (let i = 0; i < 256; i += 1) {
+    let c = i
+    for (let k = 0; k < 8; k += 1) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    }
+    table[i] = c >>> 0
+  }
+  return table
+})()
+
+const crc32 = (bytes) => {
+  let crc = 0xffffffff
+  for (const byte of bytes) {
+    crc = crcTable[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+const uint16 = (value) => [value & 0xff, (value >>> 8) & 0xff]
+const uint32 = (value) => [value & 0xff, (value >>> 8) & 0xff, (value >>> 16) & 0xff, (value >>> 24) & 0xff]
+
+const dosDateTime = (date = new Date()) => {
+  const time = ((date.getHours() & 0x1f) << 11) | ((date.getMinutes() & 0x3f) << 5) | ((Math.floor(date.getSeconds() / 2)) & 0x1f)
+  const year = Math.max(date.getFullYear(), 1980)
+  const day = ((year - 1980) << 9) | (((date.getMonth() + 1) & 0xf) << 5) | (date.getDate() & 0x1f)
+  return { time, day }
+}
+
+const createZipBlob = async (files) => {
+  const encoder = new TextEncoder()
+  const chunks = []
+  const central = []
+  let offset = 0
+  const stamp = dosDateTime()
+
+  for (const file of files) {
+    const nameBytes = encoder.encode(file.name)
+    const data = new Uint8Array(await file.blob.arrayBuffer())
+    const crc = crc32(data)
+    const localHeader = new Uint8Array([
+      ...uint32(0x04034b50),
+      ...uint16(20),
+      ...uint16(0),
+      ...uint16(0),
+      ...uint16(stamp.time),
+      ...uint16(stamp.day),
+      ...uint32(crc),
+      ...uint32(data.length),
+      ...uint32(data.length),
+      ...uint16(nameBytes.length),
+      ...uint16(0),
+    ])
+
+    chunks.push(localHeader, nameBytes, data)
+    central.push({ nameBytes, crc, size: data.length, offset })
+    offset += localHeader.length + nameBytes.length + data.length
+  }
+
+  const centralStart = offset
+  for (const file of central) {
+    const header = new Uint8Array([
+      ...uint32(0x02014b50),
+      ...uint16(20),
+      ...uint16(20),
+      ...uint16(0),
+      ...uint16(0),
+      ...uint16(stamp.time),
+      ...uint16(stamp.day),
+      ...uint32(file.crc),
+      ...uint32(file.size),
+      ...uint32(file.size),
+      ...uint16(file.nameBytes.length),
+      ...uint16(0),
+      ...uint16(0),
+      ...uint16(0),
+      ...uint16(0),
+      ...uint32(0),
+      ...uint32(file.offset),
+    ])
+    chunks.push(header, file.nameBytes)
+    offset += header.length + file.nameBytes.length
+  }
+
+  const centralSize = offset - centralStart
+  chunks.push(new Uint8Array([
+    ...uint32(0x06054b50),
+    ...uint16(0),
+    ...uint16(0),
+    ...uint16(files.length),
+    ...uint16(files.length),
+    ...uint32(centralSize),
+    ...uint32(centralStart),
+    ...uint16(0),
+  ]))
+
+  return new Blob(chunks, { type: 'application/zip' })
+}
+
+const buildReportData = (invoice, report) => ({
+  ...report,
+  customer: report.customer || invoice.customer,
+  invoice: {
+    invoiceNumber: invoice.invoiceNumber,
+    issueDate: invoice.issueDate,
+  },
+  customer_name: report.customer?.name || invoice.customer?.name,
+  customer_address: report.customer?.address || invoice.customer?.address,
+  customer_contact: report.customer?.phone || invoice.customer?.phone,
+  po_number: report.poNumber,
+  tc_number: report.tcNumber,
+  tc_date: report.invoice?.issueDate || report.tcDate || invoice.issueDate,
+  items: parseItems(report.items),
+  note: report.notes,
+  legal: report.legalDisclaimer,
+})
+
+const renderReportHtml = (invoice, report) => {
+  const data = buildReportData(invoice, report)
+  const component = report.type === 'calibration'
+    ? <CalibrationCertificate data={data} />
+    : <TestConformanceCertificate data={data} />
+  const markup = ReactDOMServer.renderToStaticMarkup(component)
+
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <base href="${window.location.origin}/" />
+  <style>${collectDocumentStyles()}</style>
+</head>
+<body class="pdf-export-mode">
+  <div class="report-print-area">${markup}</div>
+</body>
+</html>`
 }
 
 export default function Invoices() {
@@ -39,6 +249,7 @@ export default function Invoices() {
   const [currentPage, setCurrentPage] = useState(1)
   const [certificateModalOpen, setCertificateModalOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState(null)
+  const [archivingId, setArchivingId] = useState(null)
 
   // Calculate pagination
   const totalPages = Math.ceil(invoices.length / ITEMS_PER_PAGE)
@@ -126,7 +337,38 @@ export default function Invoices() {
     )
   }
 
+  const downloadArchive = async (row) => {
+    const reports = Array.isArray(row.reports) ? row.reports : []
+    const archiveReports = reports.filter((report) => report.type === 'calibration' || report.type === 'test')
+
+    if (!archiveReports.length) {
+      alert('No generated calibration or test certificates found for this invoice.')
+      return
+    }
+
+    try {
+      setArchivingId(row.id)
+      const files = []
+
+      for (const report of archiveReports) {
+        const filename = buildCertificatePdfFilename(report)
+        const html = renderReportHtml(row, report)
+        const blob = await reportsAPI.renderPdf({ html, filename })
+        files.push({ name: `${filename}.pdf`, blob })
+      }
+
+      const zip = await createZipBlob(files)
+      downloadBlob(zip, `${safeFileName(row.invoiceNumber, 'invoice')}-certificates.zip`)
+    } catch (err) {
+      alert(err?.message || 'Failed to download certificate archive.')
+      console.error(err)
+    } finally {
+      setArchivingId(null)
+    }
+  }
+
   const showClear = query || from || to || applied.from || applied.to
+  const selectedStatus = selectedInvoice ? getCertificateStatus(selectedInvoice) : null
 
   return (
     <div className="rounded-2xl bg-white p-5 shadow-card ring-1 ring-slate-100 sm:p-6">
@@ -253,11 +495,12 @@ export default function Invoices() {
               render: (row) => (
                 <button
                   type="button"
-                  disabled
-                  className="inline-flex rounded-lg p-2 text-ink-faint transition cursor-not-allowed opacity-50"
-                  title="Archive function is disabled"
+                  onClick={() => downloadArchive(row)}
+                  disabled={archivingId === row.id}
+                  className="inline-flex rounded-lg p-2 text-ink transition hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
+                  title={`Download certificate ZIP for ${row.invoiceNumber}`}
                 >
-                  <FileArchive size={26} />
+                  <FileArchive size={26} className={archivingId === row.id ? 'animate-pulse' : ''} />
                 </button>
               ),
             },
@@ -353,7 +596,9 @@ export default function Invoices() {
         {selectedInvoice && (
           <div className="space-y-6">
             <div>
-              <p className="text-sm font-semibold text-ink-soft">Items: 1</p>
+              <p className="text-sm font-semibold text-ink-soft">
+                Items: {selectedStatus.totalItems}
+              </p>
             </div>
 
             {/* Tabs */}
@@ -372,14 +617,22 @@ export default function Invoices() {
             {/* Status Display */}
             <div className="grid grid-cols-3 gap-4 py-8 text-center">
               <div>
-                <p className="text-lg font-bold text-slate-600">0/1</p>
-                <p className="text-sm text-slate-500 mt-2">Pending</p>
+                <p className="text-lg font-bold text-slate-600">
+                  {selectedStatus.calibrationDone}/{selectedStatus.totalItems}
+                </p>
+                <p className={`mt-2 text-sm ${selectedStatus.allDone ? 'text-emerald-600' : 'text-slate-500'}`}>
+                  {selectedStatus.label}
+                </p>
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-600">-</p>
+                <p className="text-lg font-bold text-slate-600">
+                  {selectedStatus.calibrationDone > 0 ? `${selectedStatus.calibrationDone}/${selectedStatus.totalItems}` : '-'}
+                </p>
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-600">Not Done</p>
+                <p className={`text-lg font-bold ${selectedStatus.testDone ? 'text-emerald-600' : 'text-slate-600'}`}>
+                  {selectedStatus.testDone ? 'Done' : 'Not Done'}
+                </p>
               </div>
             </div>
 
@@ -388,8 +641,8 @@ export default function Invoices() {
               <Button
                 variant="secondary"
                 size="sm"
-                disabled
-                className="flex items-center gap-2 opacity-50 cursor-not-allowed"
+                onClick={fetchInvoices}
+                className="flex items-center gap-2"
               >
                 <RefreshCw size={16} />
                 Refresh

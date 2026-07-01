@@ -25,7 +25,15 @@ export const getAllInvoices = async (req, res) => {
 
     const invoices = await prisma.invoice.findMany({
       where,
-      include: { customer: true },
+      include: {
+        customer: true,
+        reports: {
+          include: {
+            customer: true,
+            instrument: true,
+          },
+        },
+      },
       orderBy: { issueDate: 'desc' }
     });
 
