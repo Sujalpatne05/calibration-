@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process'
 
+const commandName = (base) => (process.platform === 'win32' ? `${base}.cmd` : base)
+
 const normalizeDatabaseUrl = () => {
   const rawUrl = process.env.DATABASE_URL
 
@@ -47,7 +49,6 @@ const run = (command, args) =>
   new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       env: process.env,
-      shell: true,
       stdio: 'inherit',
     })
 
@@ -64,9 +65,13 @@ const run = (command, args) =>
 normalizeDatabaseUrl()
 
 try {
-  await run('npx', ['prisma', 'generate'])
-  await run('npx', ['prisma', 'migrate', 'deploy'])
-  await run('node', ['seed.js'])
+  await run(commandName('npx'), ['prisma', 'generate'])
+  await run(commandName('npx'), ['prisma', 'migrate', 'deploy'])
+
+  if (process.env.RUN_DB_SEED === 'true') {
+    await run('node', ['scripts/archive/seed.js'])
+  }
+
   await run('node', ['src/server.js'])
 } catch (error) {
   console.error(error.message)
