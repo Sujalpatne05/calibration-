@@ -56,6 +56,57 @@ const standardText = (standard, ...keys) => {
   return ''
 }
 
+const STANDARD_BY_KEY = {
+  'ASC-400': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
+  '68281901172': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
+  'CAL-25050083/ET/01': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
+  '477AV-00': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
+  '005TTW': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
+  'CAL-25100187/PR/03': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
+  '477B-1': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
+  '014L56': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
+  'CAL-25100187/PR/02': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
+  '477AV-2': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
+  '005PWD': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
+  'CAL-25100187/PR/01': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
+}
+
+const filterStandardsForSource = (standards, source) => {
+  if (!Array.isArray(standards) || standards.length <= 1) return standards
+
+  const keys = [
+    source.instrumentTag,
+    source.instrument?.instrumentId,
+    source.instrument?.model,
+    source.instrumentModel,
+  ]
+    .map((value) => String(value || '').trim().toUpperCase())
+    .filter(Boolean)
+
+  const matchingMeta = keys
+    .map((key) => STANDARD_BY_KEY[key])
+    .find(Boolean)
+  const reportKeys = keys
+    .map((key) => STANDARD_BY_KEY[key]?.reportNo || key)
+    .filter(Boolean)
+
+  const matched = standards.filter((standard) => {
+    const values = [
+      standardText(standard, 'cert', 'certificateNo', 'reportNo'),
+      standardText(standard, 'serial', 'serialNo', 'id'),
+    ].map((value) => String(value || '').trim().toUpperCase())
+
+    return values.some((value) => reportKeys.includes(value))
+  })
+
+  const selected = matched.length ? matched : standards
+
+  return selected.map((standard) => ({
+    ...standard,
+    serial: standardText(standard, 'serial', 'serialNo', 'id') || matchingMeta?.serial || '',
+  }))
+}
+
 const numberValue = (value) => {
   if (value === undefined || value === null || value === '') return null
   const numeric = Number(String(value).replace(/,/g, '').trim())
@@ -64,6 +115,8 @@ const numberValue = (value) => {
 
 const firstPresent = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== '')
+
+const REQUIRED_READING_ROWS = 4
 
 const formatNumber = (value, digits = 2) => {
   const numeric = numberValue(value)
@@ -104,9 +157,7 @@ const isConvertedReadingType = (type) =>
   type === 'humidityHumidity'
 
 const defaultPointCount = (type) => {
-  if (type === 'gauge' || type === 'generic') return 7
-  if (type === 'switch') return 3
-  return 5
+  return REQUIRED_READING_ROWS
 }
 
 const buildWorkbookPoints = (type, start, end) => {
@@ -119,6 +170,42 @@ const buildWorkbookPoints = (type, start, end) => {
   const step = divisor > 0 ? (end - start) / divisor : 0
 
   return Array.from({ length: count }, (_, index) => start + step * index)
+}
+
+const normalizeFourRows = (rows) => {
+  const normalized = rows.length >= REQUIRED_READING_ROWS
+    ? Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => {
+        const sourceIndex =
+          REQUIRED_READING_ROWS > 1
+            ? Math.round((index / (REQUIRED_READING_ROWS - 1)) * (rows.length - 1))
+            : 0
+        return rows[Math.min(rows.length - 1, sourceIndex)]
+      })
+    : rows.slice()
+
+  while (normalized.length < REQUIRED_READING_ROWS) {
+    const last = normalized[normalized.length - 1] ?? {}
+    const previous = normalized[normalized.length - 2] ?? {}
+    const lastSet = numberValue(firstPresent(last.set, last.master, last.calibrationPoint))
+    const previousSet = numberValue(firstPresent(previous.set, previous.master, previous.calibrationPoint))
+    const step =
+      lastSet !== null && previousSet !== null && lastSet !== previousSet
+        ? lastSet - previousSet
+        : 1
+    const nextSet = lastSet !== null ? formatNumber(lastSet + step) : ''
+
+    normalized.push({
+      ...last,
+      set: nextSet,
+      master: nextSet,
+      up: '',
+      down: '',
+      mean: '',
+      error: '',
+    })
+  }
+
+  return normalized
 }
 
 const buildDisplayRows = (rows, type, payload, source) => {
@@ -151,12 +238,14 @@ const buildDisplayRows = (rows, type, payload, source) => {
     rowHighestRange > 0 &&
     Math.abs(rowHighestRange - sourceEnd) > 0.0001
 
-  if (rows.length > 1 && hasRealReadings && !staleSampleRows) return rows
+  if (rows.length > 1 && hasRealReadings && !staleSampleRows) {
+    return normalizeFourRows(rows)
+  }
 
   const baseRow = rows[0] ?? {}
   const points = buildWorkbookPoints(type, start, resolvedEnd)
 
-  return points.map((point, index) => ({
+  return normalizeFourRows(points.map((point, index) => ({
     ...baseRow,
     set: formatNumber(point),
     master: formatNumber(point),
@@ -164,7 +253,7 @@ const buildDisplayRows = (rows, type, payload, source) => {
     down: index === 0 ? firstPresent(baseRow.down, '') : '',
     mean: '',
     error: '',
-  }))
+  })))
 }
 
 const readingTypeLabel = {
@@ -530,11 +619,11 @@ const ReadingTable = ({ section }) => {
 const C = (props) => {
   const source = props.data ?? props
   const parsedStandards = parseJsonList(source.standards ?? source.refStandards)
-  const standardsList = parsedStandards.length
+  const standardsList = filterStandardsForSource(parsedStandards.length
     ? parsedStandards
     : source.refStandards
       ? [{ cert: source.refStandards }]
-      : []
+      : [], source)
   const readingSections = normalizeReadingSections(source)
   const normalized = {
     ...source,

@@ -16,6 +16,15 @@ const formatNumber = (value, digits = 2) => {
   return numeric.toFixed(digits).replace(/\.?0+$/, '');
 };
 
+const REQUIRED_READING_ROWS = 4;
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString('en-GB');
+};
+
 const parseJson = (value, fallback = null) => {
   if (!value || typeof value !== 'string') return fallback;
   try {
@@ -65,6 +74,40 @@ const parsePoints = (instrument) => {
   }));
 };
 
+const normalizeReadingPoints = (points, instrument, type) => {
+  if (points.length >= REQUIRED_READING_ROWS) {
+    return Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => {
+      const sourceIndex =
+        REQUIRED_READING_ROWS > 1
+          ? Math.round((index / (REQUIRED_READING_ROWS - 1)) * (points.length - 1))
+          : 0;
+      return points[Math.min(points.length - 1, sourceIndex)];
+    });
+  }
+
+  const start = numberValue(instrument.rangeStart) ?? 0;
+  const end = numberValue(instrument.rangeEnd);
+  const fallbackEnd =
+    type === 'switch'
+      ? 20
+      : type === 'transmitter' || type === 'humidityTemperature' || type === 'humidityHumidity'
+        ? 100
+        : 60;
+  const resolvedEnd = end !== null && end !== start ? end : fallbackEnd;
+  const step = REQUIRED_READING_ROWS > 1 ? (resolvedEnd - start) / (REQUIRED_READING_ROWS - 1) : 0;
+  const normalized = [...points];
+
+  while (normalized.length < REQUIRED_READING_ROWS) {
+    const index = normalized.length;
+    normalized.push({
+      set: start + step * index,
+      unc: instrument.readingAccuracy ?? instrument.accuracy ?? '',
+    });
+  }
+
+  return normalized;
+};
+
 const inferType = (instrument) => {
   const raw = `${instrument.category || ''} ${instrument.name || ''}`.toLowerCase();
   if (raw.includes('humidity')) return 'humidity';
@@ -97,7 +140,31 @@ const REFERENCE_READING_OFFSETS = {
   },
 };
 
-const referenceOffsetForRow = (instrument, rowIndex, rowCount, converted) => {
+const REFERENCE_NOMINALS = {
+  digital: [0, 20, 40, 60, 80, 100],
+  analog: [0, 200, 400, 600, 800, 1000],
+};
+
+const interpolateOffset = (nominals, offsets, value) => {
+  if (!offsets?.length) return 0;
+  if (value <= nominals[0]) return offsets[0] ?? 0;
+
+  for (let index = 1; index < nominals.length; index += 1) {
+    const low = nominals[index - 1];
+    const high = nominals[index];
+
+    if (value <= high) {
+      const lowOffset = offsets[index - 1] ?? 0;
+      const highOffset = offsets[index] ?? lowOffset;
+      const ratio = high === low ? 0 : (value - low) / (high - low);
+      return lowOffset + (highOffset - lowOffset) * ratio;
+    }
+  }
+
+  return offsets[offsets.length - 1] ?? 0;
+};
+
+const referenceOffsetForRow = (instrument, set, start, span, converted) => {
   if (converted) return 0;
 
   const type = String(instrument.type || '').toLowerCase().includes('digital') ? 'digital' : 'analog';
@@ -107,29 +174,30 @@ const referenceOffsetForRow = (instrument, rowIndex, rowCount, converted) => {
   const offsets = REFERENCE_READING_OFFSETS[type]?.[resolution];
   if (!offsets?.length) return 0;
 
-  const mappedIndex =
-    rowCount > 1
-      ? Math.round((rowIndex / (rowCount - 1)) * (offsets.length - 1))
+  const nominalScale = type === 'analog' ? 1000 : 100;
+  const normalizedSet =
+    span && span !== 0
+      ? ((numberValue(set) ?? start) - start) / span * nominalScale
       : 0;
 
-  return offsets[Math.min(offsets.length - 1, Math.max(0, mappedIndex))] ?? 0;
+  return interpolateOffset(REFERENCE_NOMINALS[type], offsets, normalizedSet);
 };
 
 const buildRows = (instrument, typeOverride = null) => {
   const type = typeOverride || inferType(instrument);
   const start = numberValue(instrument.rangeStart) ?? 0;
   const end = numberValue(instrument.rangeEnd);
-  const points = parsePoints(instrument);
+  const points = normalizeReadingPoints(parsePoints(instrument), instrument, type);
   const maxPoint = Math.max(0, ...points.map((row) => numberValue(row.set)).filter((value) => value !== null));
   const span = end !== null && end !== start ? end - start : maxPoint || 100;
   const unit = instrument.rangeUnit || '';
   const converted = type === 'transmitter' || type === 'humidityTemperature' || type === 'humidityHumidity';
 
-  return points.map((row, index) => {
+  return points.map((row) => {
     const set = numberValue(row.set) ?? 0;
     const correspondingMA = converted ? 4 + (16 / span) * (set - start) : null;
     const defaultReading = converted ? correspondingMA : set;
-    const referenceOffset = referenceOffsetForRow(instrument, index, points.length, converted);
+    const referenceOffset = referenceOffsetForRow(instrument, set, start, span, converted);
     const generatedReading = defaultReading + referenceOffset;
     const up = numberValue(row.up) ?? generatedReading;
     const down = numberValue(row.down) ?? generatedReading;
@@ -216,16 +284,68 @@ const DEFAULT_REFERENCE_STANDARDS = [
   },
 ];
 
-const buildStandards = (standards = []) => {
-  if (!standards.length) return DEFAULT_REFERENCE_STANDARDS;
+const STANDARD_KEYS = {
+  'ASC-400': DEFAULT_REFERENCE_STANDARDS[0],
+  'CAL-25050083/ET/01': DEFAULT_REFERENCE_STANDARDS[0],
+  '68281901172': DEFAULT_REFERENCE_STANDARDS[0],
+  '477AV-00': DEFAULT_REFERENCE_STANDARDS[1],
+  'CAL-25100187/PR/03': DEFAULT_REFERENCE_STANDARDS[1],
+  '005TTW': DEFAULT_REFERENCE_STANDARDS[1],
+  '477B-1': DEFAULT_REFERENCE_STANDARDS[2],
+  'CAL-25100187/PR/02': DEFAULT_REFERENCE_STANDARDS[2],
+  '014L56': DEFAULT_REFERENCE_STANDARDS[2],
+  '477AV-2': DEFAULT_REFERENCE_STANDARDS[3],
+  'CAL-25100187/PR/01': DEFAULT_REFERENCE_STANDARDS[3],
+  '005PWD': DEFAULT_REFERENCE_STANDARDS[3],
+};
 
+const buildStandards = (standards = []) => {
   return standards.map((standard) => ({
     name: standard.instrument,
-    serial: standard.serial,
+    serial: standard.serial || STANDARD_KEYS[String(standard.reportNo || standard.certificateNo || '').toUpperCase()]?.serial || '',
     cert: standard.certificateNo || standard.reportNo,
     reportNo: standard.reportNo,
-    validUpto: standard.certExpiry ? standard.certExpiry.toISOString() : '',
+    validUpto: formatDate(standard.certExpiry),
   }));
+};
+
+const splitStandardCodes = (value) =>
+  String(value || '')
+    .split(/[,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const buildReportStandards = (instrument) => {
+  if (instrument?.standards?.length) return buildStandards(instrument.standards);
+
+  const codes = splitStandardCodes(instrument?.instrumentId);
+  const seen = new Set();
+  const matched = codes
+    .map((code) => STANDARD_KEYS[code.toUpperCase()] || STANDARD_KEYS[code])
+    .filter(Boolean)
+    .filter((standard) => {
+      const key = standard.reportNo || standard.cert || standard.serial || standard.name;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  if (matched.length) return matched;
+
+  return codes.length
+    ? codes.map((code) => ({
+        name: 'Reference Standard',
+        serial: '',
+        cert: code,
+        reportNo: code,
+        validUpto: '',
+      }))
+    : [];
+};
+
+const nonEmpty = (...values) => {
+  const found = values.find((value) => value !== undefined && value !== null && String(value).trim() !== '');
+  return found ?? 'N/A';
 };
 
 const normalizeKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -419,6 +539,7 @@ export const buildCalibrationReportFromErpItem = async ({ sourceReportId, itemIn
   const certificateNo = buildCertificateNo(sourceReport.invoice?.invoiceNumber || sourceReport.tcNumber, {
     id: resolvedInstrument.__fallbackTemplate ? `ERP-${sourceReport.id}-${Number(itemIndex)}` : resolvedInstrument.id,
   });
+  const refStandards = buildReportStandards(resolvedInstrument);
   const reportData = {
     type: 'calibration',
     certificateNo,
@@ -430,19 +551,19 @@ export const buildCalibrationReportFromErpItem = async ({ sourceReportId, itemIn
     calibrationDate,
     dueDate,
     location: 'Lab',
-    instrumentName: resolvedInstrument.name,
-    instrumentMake: resolvedInstrument.make,
-    instrumentModel: resolvedInstrument.model,
-    instrumentSerial: resolvedInstrument.serial,
-    instrumentRange: rangeText(resolvedInstrument),
-    instrumentResolution: resolvedInstrument.resolution || '',
-    instrumentAccuracy: resolvedInstrument.accuracy || '',
-    instrumentTag: resolvedInstrument.instrumentId || 'N/A',
+    instrumentName: nonEmpty(resolvedInstrument.name, item.name, item.title),
+    instrumentMake: nonEmpty(resolvedInstrument.make, itemSpecValue(item, 'make')),
+    instrumentModel: nonEmpty(resolvedInstrument.model, itemSpecValue(item, 'model'), item.itemCode),
+    instrumentSerial: nonEmpty(resolvedInstrument.serial, itemSpecValue(item, 'serial no', 'serial number')),
+    instrumentRange: nonEmpty(rangeText(resolvedInstrument), itemSpecValue(item, 'range')),
+    instrumentResolution: nonEmpty(resolvedInstrument.resolution),
+    instrumentAccuracy: nonEmpty(resolvedInstrument.accuracy, itemSpecValue(item, 'accuracy')),
+    instrumentTag: nonEmpty(resolvedInstrument.instrumentId),
     conditionOnReceipt: 'Good',
     envTemperature: '25±5',
     envHumidity: '40-70',
     readings: JSON.stringify(buildReadings(resolvedInstrument)),
-    refStandards: JSON.stringify(buildStandards(resolvedInstrument.standards)),
+    refStandards: JSON.stringify(refStandards),
     customRemark: `Generated from ERPNext invoice ${sourceReport.invoice?.invoiceNumber || sourceReport.tcNumber || ''}. PO: ${sourceReport.poNumber || 'N/A'}${resolvedInstrument.__fallbackTemplate ? '. Internal category template used because no exact instrument match was found.' : ''}`,
     calibratedByName: 'Rahul Patel',
     calibratedByDesignation: 'Lab Engineer',

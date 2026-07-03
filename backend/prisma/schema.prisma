@@ -73,7 +73,7 @@ model Instrument {
 
 model Standard {
   id                Int     @id @default(autoincrement())
-  instrumentId      Int
+  instrumentId      Int?
   instrument        String
   calibrationDate   DateTime
   reportNo          String
@@ -86,7 +86,7 @@ model Standard {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  instrumentRef     Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+  instrumentRef     Instrument? @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 }
 
 model Invoice {

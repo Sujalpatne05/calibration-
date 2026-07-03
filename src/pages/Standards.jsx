@@ -253,7 +253,8 @@ export default function Standards() {
     try {
       setLoading(true)
       setError(null)
-      setRows(BASE_STANDARD_ROWS)
+      const data = await standardsAPI.getAll()
+      setRows(data.length ? data.map(decorateStandard) : BASE_STANDARD_ROWS)
     } catch (err) {
       setError('Failed to fetch standards')
       console.error(err)
@@ -325,7 +326,7 @@ export default function Standards() {
   }
 
   const handleSave = async () => {
-    if (!form.instrument.trim() || !form.certificateNo.trim()) return
+    if (!form.instrument.trim()) return
     try {
       setLoading(true)
       
@@ -335,7 +336,7 @@ export default function Standards() {
             ...editing,
             instrument: form.instrument,
             instrumentCode: form.instrumentCode,
-            certificateNo: form.certificateNo,
+            certificateNo: form.reportNo || form.instrumentCode || form.instrument,
             reportNo: form.reportNo,
             calibrationDate: form.calibrationDate,
             displayMasterName: form.instrument,
@@ -353,27 +354,22 @@ export default function Standards() {
         const payload = {
           calibrationDate: form.calibrationDate,
           reportNo: form.reportNo,
-          certificateNo: form.certificateNo,
+          certificateNo: form.reportNo || form.instrumentCode || form.instrument,
         }
         const updated = await standardsAPI.update(editing.id, payload)
-        setRows((r) => r.map((x) => (x.id === editing.id ? updated : x)))
+        setRows((r) => r.map((x) => (x.id === editing.id ? decorateStandard(updated) : x)))
       } else {
         const selectedInstrument = findInstrumentForStandard()
 
-        if (!selectedInstrument) {
-          alert('No matching instrument found. Please enter an existing Instrument Id or exact Instrument name.')
-          return
-        }
-
         const payload = {
-          instrumentId: selectedInstrument.id,
-          instrument: form.instrument || selectedInstrument.name,
+          instrumentId: selectedInstrument?.id || null,
+          instrument: form.instrument || selectedInstrument?.name,
           calibrationDate: form.calibrationDate,
           reportNo: form.reportNo,
-          certificateNo: form.certificateNo,
+          certificateNo: form.reportNo || form.instrumentCode || form.instrument,
         }
         const created = await standardsAPI.create(payload)
-        setRows((r) => [created, ...r])
+        setRows((r) => [decorateStandard(created), ...r])
       }
       setModalOpen(false)
       setForm(EMPTY)
@@ -593,12 +589,6 @@ export default function Standards() {
             placeholder="Instrument Id"
           />
 
-          <FormInput
-            label="Certificate Number"
-            value={form.certificateNo}
-            onChange={(e) => setForm({ ...form, certificateNo: e.target.value })}
-            placeholder="014L56"
-          />
         </div>
       </Modal>
     </div>

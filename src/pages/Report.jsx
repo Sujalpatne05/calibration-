@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { FileText, ClipboardCheck, Download, Printer, Search, X, PencilLine, Plus, Trash2, RefreshCw } from 'lucide-react'
+import { FileText, ClipboardCheck, Download, Printer, Search, X, PencilLine, RefreshCw } from 'lucide-react'
 import SancLogo from '../components/SancLogo'
 import CalibrationCertificate from '../components/CalibrationCertificate'
 import TestConformanceCertificate from '../components/TestConformanceCertificate'
@@ -20,6 +20,8 @@ const TABLE_TYPE_OPTIONS = [
   { value: 'humidityTemperature', label: 'Humidity Temperature' },
   { value: 'humidityHumidity', label: 'Humidity Humidity' },
 ]
+
+const REQUIRED_READING_ROWS = 4
 
 function buildCertificatePdfFilename(report, type) {
   const prefix = type === 'test' ? 'SANC-TC' : 'SANC-CC'
@@ -204,9 +206,8 @@ const defaultPoints = (type, start, end) => {
   if (type === 'transmitter' && start === 0 && resolvedEnd === 750) {
     return [0, 175, 375, 550, 750]
   }
-  const count = type === 'gauge' ? 7 : type === 'switch' ? 3 : 5
-  const step = (resolvedEnd - start) / (count - 1)
-  return Array.from({ length: count }, (_, index) => start + step * index)
+  const step = (resolvedEnd - start) / (REQUIRED_READING_ROWS - 1)
+  return Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => start + step * index)
 }
 
 const EXCEL_SAMPLE_ROWS = {
@@ -247,6 +248,40 @@ const EXCEL_SAMPLE_ROWS = {
   ],
 }
 
+const normalizeFourReadingRows = (rows = [], context = {}, report = {}) => {
+  const normalized = rows.length >= REQUIRED_READING_ROWS
+    ? Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => {
+        const sourceIndex =
+          REQUIRED_READING_ROWS > 1
+            ? Math.round((index / (REQUIRED_READING_ROWS - 1)) * (rows.length - 1))
+            : 0
+        return rows[Math.min(rows.length - 1, sourceIndex)]
+      })
+    : rows.slice()
+
+  while (normalized.length < REQUIRED_READING_ROWS) {
+    const last = normalized[normalized.length - 1]
+    const previous = normalized[normalized.length - 2]
+    const lastSet = numberValue(last?.set)
+    const previousSet = numberValue(previous?.set)
+    const step =
+      lastSet !== null && previousSet !== null && lastSet !== previousSet
+        ? lastSet - previousSet
+        : 1
+    const nextSet = lastSet !== null ? formatNumber(lastSet + step) : ''
+
+    normalized.push({
+      sr: normalized.length + 1,
+      set: nextSet,
+      up: '',
+      down: '',
+      unc: last?.unc ?? context.uncertainty ?? report?.instrumentAccuracy ?? '',
+    })
+  }
+
+  return normalized.map((row, index) => ({ ...row, sr: index + 1 }))
+}
+
 const normalizeReadingEditorSections = (report) => {
   const payload = parseJsonValue(report?.readings)
   const range = parseRange(report?.instrumentRange)
@@ -257,13 +292,13 @@ const normalizeReadingEditorSections = (report) => {
       tableType: section.tableType || section.type || 'gauge',
       unit: section.unit || payload.unit || range.unit,
       highestRange: section.highestRange || payload.highestRange || range.end || '',
-      rows: (section.rows || []).map((row, index) => ({
+      rows: normalizeFourReadingRows((section.rows || []).map((row, index) => ({
         sr: index + 1,
         set: formatNumber(row.set ?? row.master ?? row.calibrationPoint),
         up: formatNumber(row.up ?? row.standardUp ?? row.switchingUp),
         down: formatNumber(row.down ?? row.standardDown ?? row.switchingDown),
         unc: row.unc ?? row.uncertainty ?? payload.uncertainty ?? '',
-      })),
+      })), section, report),
     }))
   }
 
@@ -291,14 +326,14 @@ const normalizeReadingEditorSections = (report) => {
         tableType: 'humidityTemperature',
         unit: '\u00b0C',
         highestRange: payload?.highestRange || range.end || 100,
-        rows: baseRows,
+        rows: normalizeFourReadingRows(baseRows, payload, report),
       },
       {
         title: 'Humidity Transmitter - Humidity',
         tableType: 'humidityHumidity',
         unit: '%RH',
         highestRange: payload?.highestRange || range.end || 100,
-        rows: baseRows,
+        rows: normalizeFourReadingRows(baseRows, payload, report),
       },
     ]
   }
@@ -309,7 +344,7 @@ const normalizeReadingEditorSections = (report) => {
       tableType: type,
       unit: payload?.unit || range.unit || '',
       highestRange: payload?.highestRange || range.end || fallbackRangeEnd(type),
-      rows: points.map((point, index) => {
+      rows: normalizeFourReadingRows(points.map((point, index) => {
         const source = existingRows[index] || {}
         return {
           sr: index + 1,
@@ -318,7 +353,7 @@ const normalizeReadingEditorSections = (report) => {
           down: formatNumber(source.down ?? source.standardDown ?? source.switchingDown),
           unc: source.unc ?? source.uncertainty ?? payload?.uncertainty ?? report?.instrumentAccuracy ?? '',
         }
-      }),
+      }), payload, report),
     },
   ]
 }
@@ -412,7 +447,7 @@ export default function Report() {
     setReadingSections((sections) =>
       sections.map((section, index) => {
         if (index !== sectionIndex) return section
-        const rows = EXCEL_SAMPLE_ROWS[section.tableType] || EXCEL_SAMPLE_ROWS.gauge
+        const rows = (EXCEL_SAMPLE_ROWS[section.tableType] || EXCEL_SAMPLE_ROWS.gauge).slice(0, REQUIRED_READING_ROWS)
         const highestRange =
           section.tableType === 'transmitter'
             ? '750'
@@ -437,52 +472,6 @@ export default function Report() {
     )
   }
 
-  const addReadingRow = (sectionIndex) => {
-    setReadingSections((sections) =>
-      sections.map((section, index) => {
-        if (index !== sectionIndex) return section
-        const last = section.rows[section.rows.length - 1]
-        const previous = section.rows[section.rows.length - 2]
-        const lastSet = numberValue(last?.set)
-        const previousSet = numberValue(previous?.set)
-        const step =
-          lastSet !== null && previousSet !== null && lastSet !== previousSet
-            ? lastSet - previousSet
-            : 1
-        const nextSet = lastSet !== null ? formatNumber(lastSet + step) : ''
-
-        return {
-          ...section,
-          rows: [
-            ...section.rows,
-            {
-              sr: section.rows.length + 1,
-              set: nextSet,
-              up: '',
-              down: '',
-              unc: last?.unc ?? selectedReport?.instrumentAccuracy ?? '',
-            },
-          ],
-        }
-      })
-    )
-  }
-
-  const removeReadingRow = (sectionIndex, rowIndex) => {
-    setReadingSections((sections) =>
-      sections.map((section, index) =>
-        index === sectionIndex
-          ? {
-              ...section,
-              rows: section.rows
-                .filter((_, currentIndex) => currentIndex !== rowIndex)
-                .map((row, nextIndex) => ({ ...row, sr: nextIndex + 1 })),
-            }
-          : section
-      )
-    )
-  }
-
   const saveReadings = async () => {
     if (!selectedReport) return
 
@@ -494,7 +483,7 @@ export default function Report() {
             title: section.title,
             unit: section.unit,
             highestRange: numberValue(section.highestRange),
-            rows: section.rows.map((row) => ({
+            rows: normalizeFourReadingRows(section.rows, section, selectedReport).map((row) => ({
               set: row.set,
               master: row.set,
               unit: section.unit,
@@ -508,7 +497,7 @@ export default function Report() {
           tableType: readingSections[0]?.tableType || 'gauge',
           unit: readingSections[0]?.unit || '',
           highestRange: numberValue(readingSections[0]?.highestRange),
-          rows: (readingSections[0]?.rows || []).map((row) => ({
+          rows: normalizeFourReadingRows(readingSections[0]?.rows || [], readingSections[0], selectedReport).map((row) => ({
             set: row.set,
             master: row.set,
             unit: readingSections[0]?.unit || '',
@@ -1136,14 +1125,6 @@ export default function Report() {
                         >
                           <PencilLine size={16} /> Load Excel Sample
                         </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => addReadingRow(sectionIndex)}
-                        >
-                          <Plus size={16} /> Row
-                        </Button>
                       </div>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -1215,7 +1196,6 @@ export default function Report() {
                             <th className="px-3 py-2">Up</th>
                             <th className="px-3 py-2">Down</th>
                             <th className="px-3 py-2">Uncertainty</th>
-                            <th className="px-3 py-2 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1235,17 +1215,6 @@ export default function Report() {
                                   />
                                 </td>
                               ))}
-                              <td className="px-3 py-2 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => removeReadingRow(sectionIndex, rowIndex)}
-                                  className="inline-flex rounded-lg p-2 text-red-500 transition hover:bg-red-50"
-                                  aria-label="Remove row"
-                                  disabled={section.rows.length <= 1}
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </td>
                             </tr>
                           ))}
                         </tbody>

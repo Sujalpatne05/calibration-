@@ -1,7 +1,7 @@
 import Joi from 'joi';
 
 export const createStandardSchema = Joi.object({
-  instrumentId: Joi.number().required(),
+  instrumentId: Joi.number().allow(null).optional(),
   instrument: Joi.string().required(),
   calibrationDate: Joi.string().allow('', null).optional(),
   reportNo: Joi.string().allow('', null).optional(),
