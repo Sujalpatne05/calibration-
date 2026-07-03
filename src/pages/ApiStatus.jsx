@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   CheckCircle2,
@@ -18,6 +18,7 @@ import { erpnextAPI } from '../services/api'
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const ERP_PO_API_URL = import.meta.env.VITE_ERPNEXT_PO_API_URL || `${API_BASE}/erpnext/purchase-orders`
 const PO_ITEMS_PER_PAGE = 5
+const AUTO_REFRESH_MS = 10000
 
 const CHECKS = [
   {
@@ -208,10 +209,12 @@ export default function ApiStatus() {
     }
   }, [checks, erpPo.status])
 
-  const runChecks = async () => {
-    setLoading(true)
-    setChecks((current) => current.map((check) => ({ ...check, status: 'checking' })))
-    setErpPo((current) => ({ ...current, status: 'checking', error: '' }))
+  const runChecks = useCallback(async ({ silent = false, resetPage = false } = {}) => {
+    if (!silent) {
+      setLoading(true)
+      setChecks((current) => current.map((check) => ({ ...check, status: 'checking' })))
+      setErpPo((current) => ({ ...current, status: 'checking', error: '' }))
+    }
 
     const token = localStorage.getItem('token')
     const checksPromise = Promise.all(
@@ -283,10 +286,14 @@ export default function ApiStatus() {
 
     setChecks(results)
     setErpPo(erpResult)
-    setPoPage(1)
+    setPoPage((page) => {
+      if (resetPage) return 1
+      const totalPages = Math.max(1, Math.ceil(erpResult.rows.length / PO_ITEMS_PER_PAGE))
+      return Math.min(page, totalPages)
+    })
     setLastChecked(new Date())
     setLoading(false)
-  }
+  }, [])
 
   const syncErpInvoices = async () => {
     try {
@@ -297,7 +304,7 @@ export default function ApiStatus() {
         type: 'success',
         message: `Synced ${result.saved || 0} of ${result.fetched || 0} ERPNext invoices into DB.`,
       })
-      await runChecks()
+      await runChecks({ resetPage: true })
     } catch (error) {
       setSyncResult({
         type: 'error',
@@ -309,8 +316,13 @@ export default function ApiStatus() {
   }
 
   useEffect(() => {
-    runChecks()
-  }, [])
+    runChecks({ resetPage: true })
+    const intervalId = window.setInterval(() => {
+      runChecks({ silent: true })
+    }, AUTO_REFRESH_MS)
+
+    return () => window.clearInterval(intervalId)
+  }, [runChecks])
 
   const poTotalPages = Math.max(1, Math.ceil(erpPo.rows.length / PO_ITEMS_PER_PAGE))
   const poStartIndex = (poPage - 1) * PO_ITEMS_PER_PAGE
@@ -338,7 +350,7 @@ export default function ApiStatus() {
               <Save size={18} className={syncing ? 'animate-pulse' : ''} />
               {syncing ? 'Syncing...' : 'Sync ERP'}
             </Button>
-            <Button onClick={runChecks} disabled={loading || syncing} className="w-full sm:w-auto">
+            <Button onClick={() => runChecks()} disabled={loading || syncing} className="w-full sm:w-auto">
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               Refresh
             </Button>

@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process'
 
 const commandName = (base) => (process.platform === 'win32' ? `${base}.cmd` : base)
+const migrateRetries = Number.parseInt(process.env.MIGRATE_RETRIES || '5', 10)
+const migrateRetryDelayMs = Number.parseInt(process.env.MIGRATE_RETRY_DELAY_MS || '10000', 10)
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const normalizeDatabaseUrl = () => {
   const rawUrl = process.env.DATABASE_URL
@@ -62,11 +66,37 @@ const run = (command, args) =>
     })
   })
 
+const runWithRetry = async (command, args, { retries = 3, delayMs = 5000 } = {}) => {
+  let lastError = null
+
+  for (let attempt = 1; attempt <= retries; attempt += 1) {
+    try {
+      await run(command, args)
+      return
+    } catch (error) {
+      lastError = error
+
+      if (attempt >= retries) {
+        break
+      }
+
+      const waitMs = delayMs * attempt
+      console.error(`${error.message}. Retrying in ${Math.round(waitMs / 1000)}s (${attempt}/${retries})...`)
+      await sleep(waitMs)
+    }
+  }
+
+  throw lastError
+}
+
 normalizeDatabaseUrl()
 
 try {
   await run(commandName('npx'), ['prisma', 'generate'])
-  await run(commandName('npx'), ['prisma', 'migrate', 'deploy'])
+  await runWithRetry(commandName('npx'), ['prisma', 'migrate', 'deploy'], {
+    retries: Number.isFinite(migrateRetries) && migrateRetries > 0 ? migrateRetries : 5,
+    delayMs: Number.isFinite(migrateRetryDelayMs) && migrateRetryDelayMs > 0 ? migrateRetryDelayMs : 10000,
+  })
 
   if (process.env.RUN_DB_SEED === 'true') {
     await run('node', ['scripts/seed.js'])
