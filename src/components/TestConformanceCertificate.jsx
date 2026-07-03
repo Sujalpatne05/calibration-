@@ -119,36 +119,39 @@ const T = (props) => {
           <span className="tc-label">TC Number</span>
           <span className="tc-value">:&nbsp; {tc_number}</span>
           <span className="tc-date">
-            <b>Date:</b>{tc_date}
+            <b>Date:</b>
+            <span>{tc_date}</span>
           </span>
         </div>
 
         <div className="tc-cell" style={{ padding: 0 }}>
-          <div className="tc-table-head">
-            <div>Sr.<br />No</div>
-            <div>Item Description</div>
-            <div>Quantity</div>
-          </div>
-          {items.map((item) => (
-            <div className="tc-item" key={item.sr}>
-              <div className="tc-sr">{item.sr}</div>
-              <div className="tc-desc">
-                <div className="tc-item-name">{item.name}</div>
-                {item.specs.length ? (
-                  <div className="tc-specs">
-                    {item.specs.map((s, i) => (
-                      <Fragment key={i}>
-                        <span className="tc-k">{s.key}</span>
-                        <span className="tc-sep">:</span>
-                        <span className="tc-v">{s.value}</span>
-                      </Fragment>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-              <div className="tc-qty">{item.qty}</div>
+          <div className="tc-items-grid">
+            <div className="tc-table-head">
+              <div>Sr.<br />No</div>
+              <div>Item Description</div>
+              <div>Quantity</div>
             </div>
-          ))}
+            {items.map((item) => (
+              <Fragment key={item.sr}>
+                <div className="tc-sr">{item.sr}</div>
+                <div className="tc-desc">
+                  <div className="tc-item-name">{item.name}</div>
+                  {item.specs.length ? (
+                    <div className="tc-specs">
+                      {item.specs.map((s, i) => (
+                        <Fragment key={i}>
+                          <span className="tc-k">{s.key}</span>
+                          <span className="tc-sep">:</span>
+                          <span className="tc-v">{s.value}</span>
+                        </Fragment>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                <div className="tc-qty">{item.qty}</div>
+              </Fragment>
+            ))}
+          </div>
         </div>
 
         <div className="tc-cell tc-note">{note}</div>
