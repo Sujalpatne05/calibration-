@@ -116,7 +116,7 @@ const numberValue = (value) => {
 const firstPresent = (...values) =>
   values.find((value) => value !== undefined && value !== null && value !== '')
 
-const REQUIRED_READING_ROWS = 4
+const REQUIRED_READING_ROWS = 5
 
 const formatNumber = (value, digits = 2) => {
   const numeric = numberValue(value)

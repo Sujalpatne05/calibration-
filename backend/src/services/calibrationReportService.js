@@ -16,7 +16,7 @@ const formatNumber = (value, digits = 2) => {
   return numeric.toFixed(digits).replace(/\.?0+$/, '');
 };
 
-const REQUIRED_READING_ROWS = 4;
+const REQUIRED_READING_ROWS = 5;
 
 const formatDate = (value) => {
   if (!value) return '';

@@ -21,7 +21,7 @@ const TABLE_TYPE_OPTIONS = [
   { value: 'humidityHumidity', label: 'Humidity Humidity' },
 ]
 
-const REQUIRED_READING_ROWS = 4
+const REQUIRED_READING_ROWS = 5
 
 function buildCertificatePdfFilename(report, type) {
   const prefix = type === 'test' ? 'SANC-TC' : 'SANC-CC'
