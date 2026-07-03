@@ -3,6 +3,7 @@ import logger from '../config/logger.js';
 import fs from 'fs/promises';
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
+import { buildReportStandards } from '../services/calibrationReportService.js';
 
 const { PrismaClient } = pkg;
 const prisma = new PrismaClient();
@@ -115,6 +116,70 @@ const validateJsonField = (data, fieldName, expectedRoot) => {
   return null;
 };
 
+const parseJsonList = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'string') return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const hasUsableStandard = (standard) => {
+  if (!standard || typeof standard !== 'object') return Boolean(standard);
+
+  return [
+    standard.name,
+    standard.instrument,
+    standard.serial,
+    standard.serialNo,
+    standard.id,
+    standard.cert,
+    standard.certificateNo,
+    standard.reportNo,
+    standard.valid,
+    standard.certExpiry,
+    standard.validUpto,
+  ].some((value) => value !== undefined && value !== null && !Array.isArray(value) && String(value).trim() !== '');
+};
+
+const instrumentFromReport = (report) =>
+  report.instrument || {
+    name: report.instrumentName,
+    model: report.instrumentModel,
+    serial: report.instrumentSerial,
+    instrumentId: report.instrumentTag,
+    category: report.instrumentName,
+    standards: [],
+  };
+
+const withResolvedStandards = (report) => {
+  if (!report || report.type !== 'calibration') return report;
+
+  const storedStandards = parseJsonList(report.refStandards);
+  const refStandards = storedStandards.some(hasUsableStandard)
+    ? storedStandards
+    : buildReportStandards(instrumentFromReport(report));
+
+  return {
+    ...report,
+    refStandards: JSON.stringify(refStandards),
+  };
+};
+
+const reportInclude = {
+  customer: true,
+  instrument: {
+    include: {
+      standards: true,
+    },
+  },
+  invoice: true,
+};
+
 const sanitizeReportData = (data) => {
   const next = { ...data };
   const errors = [
@@ -171,16 +236,12 @@ export const getAllReports = async (req, res) => {
 
     const reports = await prisma.report.findMany({
       where,
-      include: {
-        customer: true,
-        instrument: true,
-        invoice: true,
-      },
+      include: reportInclude,
       orderBy: { issueDate: 'desc' },
       take: limit,
     });
 
-    res.json(reports);
+    res.json(reports.map(withResolvedStandards));
   } catch (error) {
     logger.error('Get reports error:', error);
     res.status(500).json({ error: 'Failed to fetch reports' });
@@ -193,18 +254,14 @@ export const getReportById = async (req, res) => {
 
     const report = await prisma.report.findUnique({
       where: { id: parseInt(id) },
-      include: {
-        customer: true,
-        instrument: true,
-        invoice: true,
-      },
+      include: reportInclude,
     });
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    res.json(report);
+    res.json(withResolvedStandards(report));
   } catch (error) {
     logger.error('Get report error:', error);
     res.status(500).json({ error: 'Failed to fetch report' });
@@ -218,15 +275,11 @@ export const createReport = async (req, res) => {
 
     const report = await prisma.report.create({
       data,
-      include: {
-        customer: true,
-        instrument: true,
-        invoice: true,
-      },
+      include: reportInclude,
     });
 
     logger.info(`Report created: ${report.id}`);
-    res.status(201).json(report);
+    res.status(201).json(withResolvedStandards(report));
   } catch (error) {
     logger.error('Create report error:', error);
     res.status(500).json({ error: 'Failed to create report' });
@@ -242,15 +295,11 @@ export const updateReport = async (req, res) => {
     const report = await prisma.report.update({
       where: { id: parseInt(id) },
       data,
-      include: {
-        customer: true,
-        instrument: true,
-        invoice: true,
-      },
+      include: reportInclude,
     });
 
     logger.info(`Report updated: ${id}`);
-    res.json(report);
+    res.json(withResolvedStandards(report));
   } catch (error) {
     if (error.code === 'P2025') {
       return res.status(404).json({ error: 'Report not found' });

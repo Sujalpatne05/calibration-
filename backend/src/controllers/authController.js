@@ -8,16 +8,11 @@ const prisma = new PrismaClient();
 
 export const login = async (req, res) => {
   try {
-    console.log('Login attempt with body:', req.body);
-    console.log('Validated:', req.validated);
-    
     const { username, password } = req.validated;
 
     const user = await prisma.user.findUnique({
       where: { username }
     });
-
-    console.log('User found:', !!user);
 
     if (!user) {
       logger.warn(`Login failed for user: ${username}`);
@@ -25,7 +20,6 @@ export const login = async (req, res) => {
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    console.log('Password valid:', isPasswordValid);
     
     if (!isPasswordValid) {
       logger.warn(`Invalid password for user: ${username}`);
@@ -46,7 +40,6 @@ export const login = async (req, res) => {
       isAuthenticated: true
     });
   } catch (error) {
-    console.error('Login error caught:', error);
     logger.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }

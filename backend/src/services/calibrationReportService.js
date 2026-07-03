@@ -299,14 +299,42 @@ const STANDARD_KEYS = {
   '005PWD': DEFAULT_REFERENCE_STANDARDS[3],
 };
 
+const defaultStandardForInstrument = (instrument) => {
+  const raw = `${instrument?.category || ''} ${instrument?.name || ''} ${instrument?.model || ''}`.toLowerCase();
+
+  if (raw.includes('transmitter') || raw.includes('humidity')) {
+    return DEFAULT_REFERENCE_STANDARDS[0];
+  }
+
+  if (raw.includes('gauge') || raw.includes('pressure') || raw.includes('switch')) {
+    return DEFAULT_REFERENCE_STANDARDS[1];
+  }
+
+  return DEFAULT_REFERENCE_STANDARDS[0];
+};
+
 const buildStandards = (standards = []) => {
-  return standards.map((standard) => ({
-    name: standard.instrument,
-    serial: standard.serial || STANDARD_KEYS[String(standard.reportNo || standard.certificateNo || '').toUpperCase()]?.serial || '',
-    cert: standard.certificateNo || standard.reportNo,
-    reportNo: standard.reportNo,
-    validUpto: formatDate(standard.certExpiry),
-  }));
+  return standards
+    .map((standard) => {
+      const key = String(
+        standard.reportNo ||
+        standard.certificateNo ||
+        standard.serial ||
+        standard.model ||
+        standard.instrument ||
+        ''
+      ).toUpperCase();
+      const mapped = STANDARD_KEYS[key];
+
+      return {
+        name: standard.instrument || mapped?.name || '',
+        serial: standard.serial || mapped?.serial || '',
+        cert: standard.certificateNo || standard.reportNo || mapped?.cert || '',
+        reportNo: standard.reportNo || mapped?.reportNo || '',
+        validUpto: formatDate(standard.certExpiry) || mapped?.validUpto || '',
+      };
+    })
+    .filter((standard) => standard.name || standard.serial || standard.cert || standard.validUpto);
 };
 
 const splitStandardCodes = (value) =>
@@ -315,10 +343,17 @@ const splitStandardCodes = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const buildReportStandards = (instrument) => {
-  if (instrument?.standards?.length) return buildStandards(instrument.standards);
+export const buildReportStandards = (instrument) => {
+  const linkedStandards = buildStandards(instrument?.standards || []);
+  if (linkedStandards.some((standard) => standard.name && (standard.serial || standard.cert))) {
+    return linkedStandards;
+  }
 
-  const codes = splitStandardCodes(instrument?.instrumentId);
+  const codes = [
+    ...splitStandardCodes(instrument?.instrumentId),
+    ...splitStandardCodes(instrument?.model),
+    ...splitStandardCodes(instrument?.serial),
+  ];
   const seen = new Set();
   const matched = codes
     .map((code) => STANDARD_KEYS[code.toUpperCase()] || STANDARD_KEYS[code])
@@ -332,15 +367,7 @@ const buildReportStandards = (instrument) => {
 
   if (matched.length) return matched;
 
-  return codes.length
-    ? codes.map((code) => ({
-        name: 'Reference Standard',
-        serial: '',
-        cert: code,
-        reportNo: code,
-        validUpto: '',
-      }))
-    : [];
+  return [defaultStandardForInstrument(instrument)];
 };
 
 const nonEmpty = (...values) => {

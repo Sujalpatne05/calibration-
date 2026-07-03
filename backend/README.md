@@ -6,24 +6,24 @@ Node.js + Express + Prisma backend for the SANC Calibration Management System.
 
 ```text
 backend/
-├── prisma/
-│   ├── migrations/       # Database migrations
-│   └── schema.prisma     # Prisma schema
-├── scripts/
-│   ├── import-old-data.js
-│   ├── seed.js
-│   ├── seed-default-standards.js
-│   └── start.js          # Production startup: generate, migrate, run server
-├── src/
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── routes/
-│   ├── schemas/
-│   ├── services/
-│   └── server.js
-├── package.json
-└── .env.example
+|-- prisma/
+|   |-- migrations/       # Database migrations
+|   `-- schema.prisma     # Prisma schema
+|-- scripts/
+|   |-- import-old-data.js
+|   |-- seed.js
+|   |-- seed-default-standards.js
+|   `-- start.js          # Production startup: generate, migrate, run server
+|-- src/
+|   |-- config/
+|   |-- controllers/
+|   |-- middleware/
+|   |-- routes/
+|   |-- schemas/
+|   |-- services/
+|   `-- server.js
+|-- package.json
+`-- .env.example
 ```
 
 ## Local Development
@@ -71,7 +71,14 @@ ERPNEXT_BASE_URL=
 ERPNEXT_API_KEY=
 ERPNEXT_API_SECRET=
 ERPNEXT_AUTH_SCHEME=basic
+RUN_DB_SEED=false
+SEED_ADMIN_USERNAME=sanc
+SEED_ADMIN_PASSWORD=
+SEED_ADMIN_EMAIL=admin@sanc.com
+SEED_ADMIN_NAME=Admin User
 ```
+
+Only set `RUN_DB_SEED=true` when you intentionally want startup to create or update the admin user. When enabled, `SEED_ADMIN_PASSWORD` is required.
 
 ## API Areas
 

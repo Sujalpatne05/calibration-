@@ -50,35 +50,94 @@ const standardText = (standard, ...keys) => {
   if (typeof standard !== 'object') return String(standard)
 
   for (const key of keys) {
-    if (standard[key]) return standard[key]
+    const value = standard[key]
+    if (Array.isArray(value)) {
+      if (value.length) return value.join(', ')
+      continue
+    }
+    if (value && typeof value === 'object') continue
+    if (value) return value
   }
 
   return ''
 }
 
+const DEFAULT_REFERENCE_STANDARDS = [
+  {
+    name: 'Multifunctional Calibrator',
+    serial: '68281901172',
+    cert: 'CAL-25050083/ET/01',
+    reportNo: 'CAL-25050083/ET/01',
+    validUpto: '12/05/2026',
+  },
+  {
+    name: 'Digital Manometer',
+    serial: '005TTW',
+    cert: 'CAL-25100187/PR/03',
+    reportNo: 'CAL-25100187/PR/03',
+    validUpto: '17/10/2026',
+  },
+  {
+    name: 'Digital Manometer',
+    serial: '014L56',
+    cert: 'CAL-25100187/PR/02',
+    reportNo: 'CAL-25100187/PR/02',
+    validUpto: '17/10/2026',
+  },
+  {
+    name: 'Digital Manometer',
+    serial: '005PWD',
+    cert: 'CAL-25100187/PR/01',
+    reportNo: 'CAL-25100187/PR/01',
+    validUpto: '17/10/2026',
+  },
+]
+
 const STANDARD_BY_KEY = {
-  'ASC-400': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
-  '68281901172': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
-  'CAL-25050083/ET/01': { serial: '68281901172', reportNo: 'CAL-25050083/ET/01' },
-  '477AV-00': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
-  '005TTW': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
-  'CAL-25100187/PR/03': { serial: '005TTW', reportNo: 'CAL-25100187/PR/03' },
-  '477B-1': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
-  '014L56': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
-  'CAL-25100187/PR/02': { serial: '014L56', reportNo: 'CAL-25100187/PR/02' },
-  '477AV-2': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
-  '005PWD': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
-  'CAL-25100187/PR/01': { serial: '005PWD', reportNo: 'CAL-25100187/PR/01' },
+  'ASC-400': DEFAULT_REFERENCE_STANDARDS[0],
+  '68281901172': DEFAULT_REFERENCE_STANDARDS[0],
+  'CAL-25050083/ET/01': DEFAULT_REFERENCE_STANDARDS[0],
+  '477AV-00': DEFAULT_REFERENCE_STANDARDS[1],
+  '005TTW': DEFAULT_REFERENCE_STANDARDS[1],
+  'CAL-25100187/PR/03': DEFAULT_REFERENCE_STANDARDS[1],
+  '477B-1': DEFAULT_REFERENCE_STANDARDS[2],
+  '014L56': DEFAULT_REFERENCE_STANDARDS[2],
+  'CAL-25100187/PR/02': DEFAULT_REFERENCE_STANDARDS[2],
+  '477AV-2': DEFAULT_REFERENCE_STANDARDS[3],
+  '005PWD': DEFAULT_REFERENCE_STANDARDS[3],
+  'CAL-25100187/PR/01': DEFAULT_REFERENCE_STANDARDS[3],
+}
+
+const defaultStandardForSource = (source) => {
+  const raw = [
+    source.instrumentName,
+    source.instrumentModel,
+    source.instrumentMake,
+    source.instrument?.name,
+    source.instrument?.model,
+    source.instrument?.category,
+  ].join(' ').toLowerCase()
+
+  if (raw.includes('transmitter') || raw.includes('humidity')) {
+    return DEFAULT_REFERENCE_STANDARDS[0]
+  }
+
+  if (raw.includes('gauge') || raw.includes('pressure') || raw.includes('switch')) {
+    return DEFAULT_REFERENCE_STANDARDS[1]
+  }
+
+  return DEFAULT_REFERENCE_STANDARDS[0]
 }
 
 const filterStandardsForSource = (standards, source) => {
-  if (!Array.isArray(standards) || standards.length <= 1) return standards
+  const list = Array.isArray(standards) ? standards : []
 
   const keys = [
     source.instrumentTag,
     source.instrument?.instrumentId,
     source.instrument?.model,
     source.instrumentModel,
+    source.instrumentSerial,
   ]
     .map((value) => String(value || '').trim().toUpperCase())
     .filter(Boolean)
@@ -99,12 +158,26 @@ const filterStandardsForSource = (standards, source) => {
     return values.some((value) => reportKeys.includes(value))
   })
 
-  const selected = matched.length ? matched : standards
+  const selected = matched.length ? matched : list
 
-  return selected.map((standard) => ({
-    ...standard,
-    serial: standardText(standard, 'serial', 'serialNo', 'id') || matchingMeta?.serial || '',
-  }))
+  const cleaned = selected
+    .map((standard) => {
+      const cert = standardText(standard, 'cert', 'certificateNo', 'reportNo')
+      const serial = standardText(standard, 'serial', 'serialNo', 'id')
+      const meta = STANDARD_BY_KEY[String(cert || serial || '').trim().toUpperCase()] || matchingMeta
+
+      return {
+        ...standard,
+        name: standardText(standard, 'name', 'instrument') || meta?.name || '',
+        serial: serial || meta?.serial || '',
+        cert: cert || meta?.cert || meta?.reportNo || '',
+        reportNo: standardText(standard, 'reportNo') || meta?.reportNo || '',
+        validUpto: standardText(standard, 'valid', 'certExpiry', 'validUpto') || meta?.validUpto || '',
+      }
+    })
+    .filter((standard) => standard.name || standard.serial || standard.cert || standard.validUpto)
+
+  return cleaned.length ? cleaned : [defaultStandardForSource(source)]
 }
 
 const numberValue = (value) => {

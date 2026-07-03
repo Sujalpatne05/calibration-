@@ -10,8 +10,8 @@ import { useAuth } from '../hooks/useAuth'
 export default function Login() {
   const navigate = useNavigate()
   const { login: setAuth } = useAuth()
-  const [username, setUsername] = useState('sanc')
-  const [password, setPassword] = useState('sanc@123')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -30,9 +30,7 @@ export default function Login() {
       if (response.token) {
         // Update auth context and persistent token together.
         setAuth(response.user, response.token)
-        
-        console.log('Login successful, token stored:', response.token.substring(0, 50) + '...')
-        
+
         // Ensure localStorage is synced before navigation
         setTimeout(() => {
           navigate('/dashboard', { replace: true })
@@ -42,7 +40,6 @@ export default function Login() {
       }
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.')
-      console.error('Login error:', err)
     } finally {
       setLoading(false)
     }

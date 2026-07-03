@@ -8,10 +8,19 @@ async function main() {
   console.log('Seeding database...');
 
   try {
+    const adminUsername = process.env.SEED_ADMIN_USERNAME || 'sanc';
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@sanc.com';
+    const adminName = process.env.SEED_ADMIN_NAME || 'Admin User';
+
+    if (!adminPassword) {
+      throw new Error('SEED_ADMIN_PASSWORD is required when RUN_DB_SEED=true.');
+    }
+
     // Create or update the default application user.
-    const hashedPassword = await bcrypt.hash('sanc@123', 10);
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const sancUser = await prisma.user.findUnique({
-      where: { username: 'sanc' }
+      where: { username: adminUsername }
     });
     const legacyUser = sancUser
       ? null
@@ -19,16 +28,16 @@ async function main() {
           where: {
             OR: [
               { username: 'admin' },
-              { email: 'admin@sanc.com' }
+              { email: adminEmail }
             ]
           }
         });
 
     const defaultUserData = {
-      username: 'sanc',
+      username: adminUsername,
       password: hashedPassword,
-      email: 'admin@sanc.com',
-      fullName: 'Admin User',
+      email: adminEmail,
+      fullName: adminName,
       role: 'admin'
     };
 
@@ -37,7 +46,8 @@ async function main() {
           where: { id: sancUser.id },
           data: {
             password: hashedPassword,
-            fullName: 'Admin User',
+            email: adminEmail,
+            fullName: adminName,
             role: 'admin'
           }
         })
@@ -50,28 +60,7 @@ async function main() {
 
     console.log('Default user ready:', user.username);
 
-    // Check if customer already exists
-    const existingCustomer = await prisma.customer.findFirst({
-      where: { name: 'sujal patne' }
-    });
-
-    if (!existingCustomer) {
-      const customer = await prisma.customer.create({
-        data: {
-          name: 'sujal patne',
-          email: 'sujal@example.com',
-          phone: '9876543210',
-          address: 'Pune, India',
-          gstin: '27AABCA1234H1Z0'
-        }
-      });
-      console.log('Customer created:', customer.name);
-    } else {
-      console.log('Customer already exists:', existingCustomer.name);
-    }
-
     console.log('\nDatabase seeded successfully!');
-    console.log('Default credentials: username: sanc, password: sanc@123');
   } catch (error) {
     console.error('Seed error:', error.message);
     process.exitCode = 1;

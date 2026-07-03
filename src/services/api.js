@@ -4,11 +4,7 @@ const API_VERSION = '1.0.0'
 
 // Get token from localStorage
 const getToken = () => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    console.log(`[API] Retrieved token from localStorage: ${token.substring(0, 30)}...`)
-  }
-  return token
+  return localStorage.getItem('token')
 }
 
 // Make API call with auth
@@ -22,9 +18,6 @@ const apiCall = async (endpoint, options = {}) => {
   // Add auth header if token exists
   if (token) {
     headers.Authorization = `Bearer ${token}`
-    console.log(`[API] Adding token to ${endpoint}: ${token.substring(0, 30)}...`)
-  } else {
-    console.warn(`[API] No token available for ${endpoint}`)
   }
 
   // Add cache-busting parameter for GET requests
@@ -33,11 +26,6 @@ const apiCall = async (endpoint, options = {}) => {
     const separator = endpoint.includes('?') ? '&' : '?'
     url = `${url}${separator}_t=${Date.now()}`
   }
-
-  console.log(`[API] Calling ${options.method || 'GET'} ${url}`, { 
-    hasToken: !!token,
-    headers: Object.keys(headers)
-  })
 
   const response = await fetch(url, {
     ...options,
@@ -61,7 +49,6 @@ const apiCall = async (endpoint, options = {}) => {
       }
     }
     console.error(`[API] Error [${response.status}]: ${endpoint}`, {
-      token: token ? `present (${token.length} chars)` : 'missing',
       status: response.statusText,
       detail: errorBody?.detail || errorBody?.error,
     })
