@@ -1,83 +1,64 @@
-# SANC — Calibration Report System
+# SANC Calibration Management System
 
-A modern, responsive **React** frontend for SANC's Calibration Management Software,
-built to match the reference UI: a purple→pink gradient *Calibration Report* wordmark,
-soft gray canvas, white cards, blue primary actions and a clean white sidebar.
+Production React + Express application for SANC calibration, test certificate, ERPNext invoice sync, instruments, standards, invoices, and dashboard workflows.
 
-> Frontend only — all data is **mock JSON**. No backend / APIs.
+## Project Layout
 
-## Tech stack
+```text
+.
+├── backend/              # Express API, Prisma schema, migrations, schedulers
+├── public/               # Frontend public assets used by Vite
+├── src/                  # React frontend source
+├── docs/                 # Non-runtime notes and helper docs
+├── package.json          # Frontend scripts/dependencies
+└── vercel.json           # Frontend deployment config
+```
 
-- **React 18** + **Vite 5**
-- **React Router 6** for navigation
-- **Tailwind CSS 3** (custom brand theme tokens)
-- **Lucide React** icons
-- Fonts: **Poppins** (display) + **DM Sans** (body) via Google Fonts
+The frontend and backend deploy separately.
 
-## Getting started
+## Frontend
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev
+npm run build
 ```
 
-Build for production:
+Default local URL: `http://localhost:5173`
+
+Set this in Vercel:
+
+```text
+VITE_API_URL=https://your-backend-url
+```
+
+## Backend
 
 ```bash
-npm run build
-npm run preview
+cd backend
+npm install
+npm run dev
+npm start
 ```
 
-### Login
+Default local URL: `http://localhost:10000`
 
-Any non-empty username & password signs you in (mock auth, persisted to
-`localStorage`). The form is pre-filled with `sanc`.
+Required server environment variables are documented in [backend/.env.example](backend/.env.example).
 
-## Pages
+## Deployment Notes
 
-| Route          | Page                         |
-| -------------- | ---------------------------- |
-| `/login`       | Login                        |
-| `/dashboard`   | KPI cards, quick actions, tasklist, recent activity |
-| `/customers`   | Customer table + add/edit modal |
-| `/instruments` | Instruments + "View Ignored" toggle + add/edit modal |
-| `/standards`   | Reference standards + add/edit modal |
-| `/invoices`    | Calibration reports, date filter, CSV export |
+- Frontend deploy target: Vercel or any static hosting provider.
+- Backend deploy target: Render or any Node.js server.
+- Database: PostgreSQL-compatible connection through `DATABASE_URL`.
+- Secrets stay in deployment environment variables, never in Git.
+- Runtime logs, local DB files, Excel imports, `node_modules`, and build output are ignored.
 
-## Project structure
+## Main Features
 
-```
-src/
- ├── components/      # Button, FormInput, Modal, DataTable, SearchBar,
- │                    # DateRangeFilter, DashboardCard, StatusBadge,
- │                    # RowActions, SancLogo
- ├── layouts/         # Sidebar, TopNavbar, DashboardLayout
- ├── pages/           # Login, Dashboard, Customers, Instruments,
- │                    # Standards, Invoices
- ├── routes/          # AppRoutes (React Router config)
- ├── data/            # Mock JSON: customers, instruments, standards,
- │                    # invoices, dashboard
- ├── hooks/           # useAuth (context), useSearch
- ├── assets/          # static assets / logo notes
- ├── App.jsx          # providers + router
- └── main.jsx         # entry point
-```
-
-## Theming
-
-Brand colours, radii, shadows and animations live in `tailwind.config.js`
-under `theme.extend`. The gradient wordmark and table header styles are in
-`src/index.css` as component classes (`.text-gradient-brand`, `.table-head`).
-
-## Swapping the logo
-
-`src/components/SancLogo.jsx` is an inline-SVG reconstruction of the SANC
-gear/gauge mark. To use the official artwork, drop the file into `src/assets/`
-and replace the `<svg>` with an `<img src={logo} />`.
-
-## Responsiveness
-
-- **Desktop:** fixed sidebar (collapsible to icons), full data tables.
-- **Tablet/Mobile:** sidebar becomes an off-canvas drawer (hamburger in the
-  top bar); data tables collapse into stacked cards for readability.
-```
+- ERPNext approved invoice sync
+- Calibration report generation from ERPNext customer/PO data + internal instrument data
+- Test & Conformance certificate generation
+- Instrument and standard management
+- Customer and invoice management
+- PDF rendering/export
+- API health/status dashboard

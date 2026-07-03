@@ -69,7 +69,7 @@ try {
   await run(commandName('npx'), ['prisma', 'migrate', 'deploy'])
 
   if (process.env.RUN_DB_SEED === 'true') {
-    await run('node', ['scripts/archive/seed.js'])
+    await run('node', ['scripts/seed.js'])
   }
 
   await run('node', ['src/server.js'])
