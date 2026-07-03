@@ -116,6 +116,21 @@ const erpListTitle = (record) =>
 const erpListCustomer = (record) =>
   record.customer?.name || record.customerName || record.customer || '-'
 
+const sourceBrief = (record) => {
+  const items = reportItems(record)
+  const firstItem = items[0]
+  const itemName = firstItem?.name || firstItem?.title || firstItem?.itemName || firstItem?.itemCode || ''
+  const sourceNo = record.invoice?.invoiceNumber || record.invoiceNumber || record.tcNumber || record.certificateNo || record.id || '-'
+
+  return {
+    title: sourceNo,
+    customer: erpListCustomer(record),
+    po: record.poNumber || '-',
+    item: itemName,
+    itemCount: items.length,
+  }
+}
+
 const erpListQuantity = (record) => {
   if (record.totalQuantity) return record.totalQuantity
   const items = parseItems(record.items)
@@ -868,6 +883,7 @@ export default function Report() {
                           (erpSource) => uniqueReportKey(erpSource) === uniqueReportKey(source)
                         )
                         const sourceItems = reportItems(source)
+                        const brief = sourceBrief(source)
                         return (
                           <button
                             key={`${isErpSource ? 'erp' : 'db'}-${uniqueReportKey(source)}`}
@@ -887,8 +903,8 @@ export default function Report() {
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="font-semibold">
-                                {source.invoice?.invoiceNumber || source.tcNumber || source.certificateNo || 'ERPNext Source'}
+                              <span className="min-w-0 truncate font-semibold">
+                                {brief.title}
                               </span>
                               <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-brand-700 ring-1 ring-brand-100">
                                 {isErpSource
@@ -897,16 +913,21 @@ export default function Report() {
                               </span>
                             </div>
                             <p className="mt-0.5 truncate text-ink-faint">
-                              {source.customer?.name || 'Customer'}
+                              {brief.customer}
                             </p>
                             <div className="mt-1 flex items-center justify-between gap-2">
                               <span className="truncate text-[11px] font-medium text-brand-700">
-                                PO: {source.poNumber || '-'}
+                                PO: {brief.po}
                               </span>
                               <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-brand-600">
                                 {isErpSource ? 'ERP + DB' : 'DB'}
                               </span>
                             </div>
+                            {brief.item ? (
+                              <p className="mt-0.5 truncate text-[11px] text-ink-faint">
+                                {brief.item}
+                              </p>
+                            ) : null}
                           </button>
                         )
                       })}
@@ -1018,6 +1039,7 @@ export default function Report() {
                       const isErpSynced = erpInvoices.some(
                         (erpInvoice) => uniqueReportKey(erpInvoice) === uniqueReportKey(invoice)
                       )
+                      const brief = sourceBrief(invoice)
 
                       return (
                         <button
@@ -1028,21 +1050,26 @@ export default function Report() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <span className="truncate font-semibold text-ink">
-                              {erpListTitle(invoice)}
+                              {brief.title}
                             </span>
                             <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                               Qty {erpListQuantity(invoice)}
                             </span>
                           </div>
                           <p className="mt-0.5 truncate text-ink-soft">
-                            {erpListCustomer(invoice)}
+                            {brief.customer}
                           </p>
                           <div className="mt-0.5 flex items-center justify-between gap-2 text-ink-faint">
-                            <span className="truncate">PO: {invoice.poNumber || '-'}</span>
+                            <span className="truncate">PO: {brief.po}</span>
                             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-emerald-600">
                               {isErpSynced ? 'ERP + DB' : 'DB'}
                             </span>
                           </div>
+                          {brief.item ? (
+                            <p className="mt-0.5 truncate text-[11px] text-ink-faint">
+                              {brief.item}
+                            </p>
+                          ) : null}
                         </button>
                       )
                     })}
