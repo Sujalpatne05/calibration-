@@ -18,10 +18,21 @@ const parseJsonList = (value) => {
 
 const formatDate = (value) => {
   if (!value) return ''
-  if (typeof value === 'string' && !value.includes('T')) return value
+
+  const text = String(value).trim()
+  const isoDate = text.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoDate) return `${isoDate[1]}-${isoDate[2]}-${isoDate[3]}`
+
+  const dayFirstDate = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (dayFirstDate) return `${dayFirstDate[3]}-${dayFirstDate[2]}-${dayFirstDate[1]}`
 
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-GB')
+  if (Number.isNaN(date.getTime())) return text
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 const asList = (value) => (Array.isArray(value) ? value : [])
@@ -71,7 +82,11 @@ const T = (props) => {
   const tc_number = firstText(source.tcNumber, source.tc_number, source.certificateNo)
   const po_number = firstText(source.poNumber, source.po_number, `PO-${tc_number || 'DRAFT'}`)
   // For TC Date, prioritize tcDate (which should be the invoice date), then issueDate
-  const tc_date = firstText(source.tc_date, formatDate(source.tcDate), formatDate(source.issueDate))
+  const tc_date = firstText(
+    formatDate(source.tc_date),
+    formatDate(source.tcDate),
+    formatDate(source.issueDate)
+  )
   const note = firstText(
     source.notes,
     source.note,
