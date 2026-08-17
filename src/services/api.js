@@ -29,6 +29,7 @@ const apiCall = async (endpoint, options = {}) => {
 
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',
     headers,
   })
 
@@ -41,6 +42,7 @@ const apiCall = async (endpoint, options = {}) => {
     }
 
     if (response.status === 401) {
+      localStorage.setItem('sanc_logout_at', String(Date.now()))
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       localStorage.removeItem('sanc_auth')
@@ -71,6 +73,7 @@ const apiBlob = async (endpoint, options = {}) => {
 
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
+    credentials: 'include',
     headers,
   })
 
@@ -168,8 +171,11 @@ export const invoicesAPI = {
 // ===== ERPNEXT API =====
 export const erpnextAPI = {
   getPurchaseOrders: (limit = 50) => apiCall(`/erpnext/purchase-orders?limit=${encodeURIComponent(limit)}`),
-  syncInvoices: (limit = 50) =>
-    apiCall(`/erpnext/sync-invoices?limit=${encodeURIComponent(limit)}`, { method: 'POST' }),
+  syncInvoices: (limit = 50, includeIntegrated = false) => {
+    const params = new URLSearchParams({ limit: String(limit) })
+    if (includeIntegrated) params.set('includeIntegrated', 'true')
+    return apiCall(`/erpnext/sync-invoices?${params.toString()}`, { method: 'POST' })
+  },
   getCalibrationSources: () => apiCall('/erpnext/calibration-sources'),
   createCalibrationReport: (data) =>
     apiCall('/erpnext/calibration-report', { method: 'POST', body: JSON.stringify(data) }),
@@ -221,6 +227,7 @@ export const authAPI = {
   login: async (username, password) => {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
     })

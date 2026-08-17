@@ -104,7 +104,7 @@ const fmtDate = (value) => {
 
 const getStatus = (ok, ms) => {
   if (!ok) return 'offline'
-  return ms > 1200 ? 'degraded' : 'online'
+  return ms > 1700 ? 'degraded' : 'online'
 }
 
 const normalizePurchaseOrders = (payload) => {
@@ -224,6 +224,7 @@ export default function ApiStatus() {
         try {
           const response = await fetch(`${API_BASE}${check.endpoint}`, {
             method: 'GET',
+            credentials: 'include',
             headers: {
               Accept: 'application/json',
               ...(check.requiresAuth && token ? { Authorization: `Bearer ${token}` } : {}),
@@ -251,6 +252,7 @@ export default function ApiStatus() {
     const erpStarted = performance.now()
     const erpPromise = fetch(ERP_PO_API_URL, {
       method: 'GET',
+      credentials: 'include',
       headers: {
         Accept: 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -299,10 +301,12 @@ export default function ApiStatus() {
     try {
       setSyncing(true)
       setSyncResult(null)
-      const result = await erpnextAPI.syncInvoices(50)
+      const result = await erpnextAPI.syncInvoices(50, true)
       setSyncResult({
-        type: 'success',
-        message: `Synced ${result.saved || 0} of ${result.fetched || 0} ERPNext invoices into DB.`,
+        type: result.acknowledgmentFailed ? 'error' : 'success',
+        message: result.acknowledgmentFailed
+          ? `Saved ${result.saved || 0} invoices, but ${result.acknowledgmentFailed} ERPNext acknowledgments failed.`
+          : `Synced and acknowledged ${result.acknowledged || 0} of ${result.fetched || 0} ERPNext invoices.`,
       })
       await runChecks({ resetPage: true })
     } catch (error) {

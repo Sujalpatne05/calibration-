@@ -8,6 +8,7 @@ const createSocket = (token) => {
   socket = io(SOCKET_URL, {
     autoConnect: false,
     transports: ['websocket'],
+    withCredentials: true,
     auth: token ? { token } : undefined,
   })
 

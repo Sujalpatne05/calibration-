@@ -264,15 +264,7 @@ const EXCEL_SAMPLE_ROWS = {
 }
 
 const normalizeFourReadingRows = (rows = [], context = {}, report = {}) => {
-  const normalized = rows.length >= REQUIRED_READING_ROWS
-    ? Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => {
-        const sourceIndex =
-          REQUIRED_READING_ROWS > 1
-            ? Math.round((index / (REQUIRED_READING_ROWS - 1)) * (rows.length - 1))
-            : 0
-        return rows[Math.min(rows.length - 1, sourceIndex)]
-      })
-    : rows.slice()
+  const normalized = rows.slice()
 
   while (normalized.length < REQUIRED_READING_ROWS) {
     const last = normalized[normalized.length - 1]
@@ -462,7 +454,7 @@ export default function Report() {
     setReadingSections((sections) =>
       sections.map((section, index) => {
         if (index !== sectionIndex) return section
-        const rows = (EXCEL_SAMPLE_ROWS[section.tableType] || EXCEL_SAMPLE_ROWS.gauge).slice(0, REQUIRED_READING_ROWS)
+        const rows = (EXCEL_SAMPLE_ROWS[section.tableType] || EXCEL_SAMPLE_ROWS.gauge).slice()
         const highestRange =
           section.tableType === 'transmitter'
             ? '750'

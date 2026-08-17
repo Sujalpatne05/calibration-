@@ -9,10 +9,11 @@ import { useAuth } from '../hooks/useAuth'
  * and the routed page via <Outlet/>. Redirects to /login when signed out.
  */
 export default function DashboardLayout() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isRestoring } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  if (isRestoring) return null
   if (!isAuthenticated) return <Navigate to="/login" replace />
 
   return (

@@ -246,15 +246,7 @@ const buildWorkbookPoints = (type, start, end) => {
 }
 
 const normalizeFourRows = (rows) => {
-  const normalized = rows.length >= REQUIRED_READING_ROWS
-    ? Array.from({ length: REQUIRED_READING_ROWS }, (_, index) => {
-        const sourceIndex =
-          REQUIRED_READING_ROWS > 1
-            ? Math.round((index / (REQUIRED_READING_ROWS - 1)) * (rows.length - 1))
-            : 0
-        return rows[Math.min(rows.length - 1, sourceIndex)]
-      })
-    : rows.slice()
+  const normalized = rows.slice()
 
   while (normalized.length < REQUIRED_READING_ROWS) {
     const last = normalized[normalized.length - 1] ?? {}
@@ -422,7 +414,7 @@ const calculateRows = (rows, type, payload, source) => {
     const convertedError =
       numberValue(row.error) ??
       (setNumber !== null && correspondingValueNumber !== null
-        ? correspondingValueNumber - setNumber
+        ? setNumber - correspondingValueNumber
         : null)
 
     return {
@@ -1045,7 +1037,6 @@ const C = (props) => {
 }
 
 export default C
-
 
 
 

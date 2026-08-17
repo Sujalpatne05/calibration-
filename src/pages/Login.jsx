@@ -29,7 +29,7 @@ export default function Login() {
       
       if (response.token) {
         // Update auth context and persistent token together.
-        setAuth(response.user, response.token)
+        setAuth(response.user)
 
         // Ensure localStorage is synced before navigation
         setTimeout(() => {

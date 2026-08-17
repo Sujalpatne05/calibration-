@@ -100,12 +100,6 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        setError('No authentication token found. Please login again.')
-        return
-      }
-
       setLoading(true)
       setError(null)
       const [kpiData, customerData] = await Promise.all([
